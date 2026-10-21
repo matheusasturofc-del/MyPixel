@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>MyPixel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* Layout: editor de uma tela — lista de texturas | folha de pintura | ferramentas. No celular, tudo empilha. */
+:root {
+  --bg: #e9eef2;
+  --panel: #f8fafb;
+  --panel-2: #dde5ec;
+  --fg: #16202b;
+  --muted: #566475;
+  --line: #c7d2dc;
+  --accent: #0b8f88;
+  --accent-soft: #c8ece8;
+  --accent-fg: #ffffff;
+  --warn: #b0521a;
+  --sheet: #d6dee6;
+  --check-a: #ffffff;
+  --check-b: #cfd8e0;
+  --grid: rgba(22, 32, 43, .14);
+  --font-display: "Silkscreen", "Courier New", monospace;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1319; --panel: #141c25; --panel-2: #1c2632; --fg: #e4ebf1; --muted: #8796a6;
+    --line: #283543; --accent: #3fd9cb; --accent-soft: #123b3a; --accent-fg: #04201e; --warn: #f08a4b;
+    --sheet: #0a0f14; --check-a: #2a333d; --check-b: #212932; --grid: rgba(228, 235, 241, .12);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1319; --panel: #141c25; --panel-2: #1c2632; --fg: #e4ebf1; --muted: #8796a6;
+  --line: #283543; --accent: #3fd9cb; --accent-soft: #123b3a; --accent-fg: #04201e; --warn: #f08a4b;
+  --sheet: #0a0f14; --check-a: #2a333d; --check-b: #212932; --grid: rgba(228, 235, 241, .12);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font-body);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Barra do topo */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand canvas { width: 28px; height: 28px; image-rendering: pixelated; flex: none; }
+.brand h1 { margin: 0; font: 400 18px/1 var(--font-display); letter-spacing: .02em; }
+.pack-info { font-size: 12px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.pack-info b { color: var(--fg); font-weight: 600; }
+.top-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel-2); font-weight: 500; white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn input[type=file] { display: none; }
+
+/* Corpo: três colunas */
+.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr) 250px; }
+.side, .tools { background: var(--panel); min-height: 0; overflow: auto; }
+.side { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+.tools { border-left: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 18px; }
+
+.label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+  margin: 0 0 8px;
+}
+
+/* Lista de texturas */
+.side-head { padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
+.notice {
+  font-size: 12.5px; padding: 9px 10px; border-radius: 6px; background: var(--accent-soft); color: var(--fg);
+}
+#busca {
+  width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg);
+}
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-size: 12px;
+}
+.chip:hover { border-color: var(--accent); }
+.chip span { color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+#lista { list-style: none; margin: 0; padding: 6px; overflow: auto; flex: 1; min-height: 120px; }
+#lista li { display: block; }
+.item {
+  width: 100%; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 5px 8px; border: 0; border-radius: 6px; background: none; text-align: left;
+}
+.item:hover { background: var(--panel-2); }
+.item.aberta { background: var(--accent-soft); }
+.item img {
+  width: 32px; height: 32px; image-rendering: pixelated; object-fit: contain;
+  background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 8px 8px;
+  border-radius: 3px;
+}
+.item .nome { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .pasta { display: block; font: 11px var(--font-mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+.lista-vazia { padding: 16px; color: var(--muted); font-size: 13px; }
+
+/* Folha de pintura */
+.centro { min-height: 0; display: flex; flex-direction: column; background: var(--sheet); }
+.centro-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 14px;
+  background: var(--panel); border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.centro-bar .status { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.link { border: 0; background: none; color: var(--accent); padding: 0; font-weight: 600; }
+#folha { flex: 1; min-height: 0; overflow: auto; padding: 18px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 18px; }
+.celula { display: flex; flex-direction: column; gap: 6px; }
+.celula header { display: flex; align-items: baseline; gap: 8px; font-size: 12px; max-width: 100%; }
+.celula header b { font-weight: 600; overflow-wrap: anywhere; }
+.celula header small { font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
+.celula header .fechar { border: 0; background: none; color: var(--muted); padding: 0 2px; font-size: 14px; line-height: 1; }
+.celula header .fechar:hover { color: var(--warn); }
+.celula canvas {
+  display: block; image-rendering: pixelated; touch-action: none; cursor: crosshair;
+  outline: 1px solid var(--line); background-color: var(--check-a);
+}
+.celula.ativa canvas { outline: 2px solid var(--accent); }
+.vazio { margin: auto; max-width: 420px; text-align: center; color: var(--muted); padding: 24px; }
+.vazio h2 { font: 400 16px var(--font-display); color: var(--fg); margin: 0 0 10px; }
+
+/* Ferramentas */
+.ferramentas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.ferr {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); font-size: 11px;
+}
+.ferr svg { width: 20px; height: 20px; }
+.ferr kbd { font: 10px var(--font-mono); color: var(--muted); }
+.ferr[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.ferr[aria-pressed="true"] kbd { color: inherit; opacity: .8; }
+.dica-ferr { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+.cor-atual { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: center; }
+.amostra {
+  width: 48px; height: 48px; border-radius: 6px; border: 1px solid var(--line); position: relative; overflow: hidden;
+  background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 12px 12px;
+}
+.amostra i { position: absolute; inset: 0; }
+.amostra input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.cor-campos { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#hex { width: 100%; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font-family: var(--font-mono); font-size: 13px; }
+.alfa { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.alfa input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.alfa output { font-family: var(--font-mono); width: 3ch; text-align: right; }
+.paleta { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.paleta button {
+  aspect-ratio: 1; max-width: 100%; border-radius: 3px; border: 1px solid var(--line); padding: 0;
+  background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 8px 8px;
+  position: relative; overflow: hidden;
+}
+.paleta button i { position: absolute; inset: 0; }
+.paleta button:hover { outline: 2px solid var(--accent); }
+.paleta-vazia { font-size: 12px; color: var(--muted); }
+.linha { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.linha input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.linha output { font-family: var(--font-mono); font-size: 12px; width: 4ch; text-align: right; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.check input { accent-color: var(--accent); }
+.duplo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+/* Avisos */
+#toasts {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 8px; z-index: 20; width: min(460px, calc(100% - 32px));
+}
+.toast {
+  background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: 8px; font-size: 13px;
+  display: flex; gap: 12px; align-items: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+.toast button { margin-left: auto; border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
+
+@media (max-width: 960px) {
+  body { overflow: auto; }
+  .main { grid-template-columns: 1fr; flex: none; }
+  .side { border-right: 0; border-bottom: 1px solid var(--line); max-height: 46vh; }
+  .tools { border-left: 0; border-top: 1px solid var(--line); order: 3; }
+  .centro { min-height: 60vh; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: entra .18s ease-out; }
+  @keyframes entra { from { transform: translateY(6px); opacity: 0; } }
+}
+</style>
+
+<header class="top">
+  <div class="brand">
+    <canvas id="logo" width="16" height="16" aria-hidden="true"></canvas>
+    <div>
+      <h1>MyPixel</h1>
+      <div class="pack-info" id="pack-info">Exemplo</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <label class="btn primary" for="abrir-zip">Abrir pack (.zip)<input type="file" id="abrir-zip" accept=".zip,application/zip"></label>
+    <label class="btn" for="abrir-pasta" id="btn-pasta">Abrir pasta<input type="file" id="abrir-pasta" webkitdirectory multiple></label>
+    <button class="btn" id="baixar-pack" type="button" title="Pack inteiro com as suas edições">Baixar pack</button>
+    <button class="btn" id="baixar-editadas" type="button" title="Pack só com as texturas que você editou">Só as editadas</button>
+    <button class="btn" id="baixar-png" type="button" title="A textura selecionada na folha">Baixar PNG</button>
+  </div>
+</header>
+
+<div class="main">
+  <aside class="side" aria-label="Texturas do pack">
+    <div class="side-head">
+      <p class="notice" id="aviso-exemplo">Isto é um exemplo. Clique em <b>Abrir pack</b> e escolha o seu <b>MajesticDiamond-servidor-1.8.zip</b> para editar as texturas de verdade.</p>
+      <input id="busca" type="search" placeholder="Buscar textura (ex.: sword, wool)" autocomplete="off">
+      <div>
+        <p class="label">Abrir conjunto</p>
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+    <ul id="lista"></ul>
+  </aside>
+
+  <section class="centro" aria-label="Folha de pintura">
+    <div class="centro-bar">
+      <span id="abertas-info">Nenhuma textura aberta</span>
+      <button class="link" id="fechar-todas" type="button">Fechar todas</button>
+      <span class="status" id="status">—</span>
+    </div>
+    <div id="folha"></div>
+  </section>
+
+  <aside class="tools" aria-label="Ferramentas">
+    <div>
+      <p class="label">Ferramenta</p>
+      <div class="ferramentas" id="ferramentas"></div>
+      <p class="dica-ferr" id="dica-ferr"></p>
+    </div>
+    <div>
+      <p class="label">Cor</p>
+      <div class="cor-atual">
+        <div class="amostra"><i id="amostra-cor"></i><input type="color" id="seletor" aria-label="Escolher cor"></div>
+        <div class="cor-campos">
+          <input id="hex" type="text" spellcheck="false" aria-label="Cor em hexadecimal" maxlength="9">
+          <label class="alfa">Opac. <input type="range" id="alfa" min="0" max="255" value="255"><output id="alfa-out">255</output></label>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="label">Cores das texturas abertas</p>
+      <div class="paleta" id="paleta"></div>
+    </div>
+    <div>
+      <p class="label">Usadas agora há pouco</p>
+      <div class="paleta" id="recentes"></div>
+    </div>
+    <div>
+      <p class="label">Visualização</p>
+      <label class="linha" for="zoom">Zoom <input type="range" id="zoom" min="2" max="40" value="16"><output id="zoom-out">16x</output></label>
+      <label class="check"><input type="checkbox" id="grade" checked> Mostrar grade de pixels</label>
+    </div>
+    <div class="duplo">
+      <button class="btn" id="desfazer" type="button">Desfazer</button>
+      <button class="btn" id="refazer" type="button">Refazer</button>
+    </div>
+  </aside>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+const PREFIXO = "assets/minecraft/textures/";
+const MCMETA_PADRAO = JSON.stringify({ pack: { pack_format: 1, description: "§bMajestic Diamond §7- PvP 16x" } }, null, 2);
+const LIMITE_CANVAS = 1024; // texturas grandes (gui/icons.png) usam zoom menor
+
+const CONJUNTOS = [
+  { nome: "Lã", teste: n => n.startsWith("blocks/wool_colored_") },
+  { nome: "Espadas", teste: n => /^items\/[a-z]+_sword\.png$/.test(n) },
+  { nome: "Arco", teste: n => n.startsWith("items/bow_") },
+  { nome: "Poções", teste: n => /^items\/potion_/.test(n) },
+  { nome: "Armadura", teste: n => /^items\/(diamond|iron|gold|chainmail)_(helmet|chestplate|leggings|boots)\.png$/.test(n) },
+  { nome: "Vidro", teste: n => /^blocks\/glass(_[a-z_]+)?\.png$/.test(n) && !n.includes("pane") },
+  { nome: "Argila", teste: n => n.startsWith("blocks/hardened_clay") },
+  { nome: "Minérios", teste: n => /^blocks\/[a-z]+_ore\.png$/.test(n) },
+];
+
+const FERRAMENTAS = [
+  { id: "lapis", nome: "Lápis", tecla: "B", dica: "Pinta um pixel. Arraste para desenhar.",
+    svg: '<path d="M4 20l1-5L15 5l4 4L9 19z M13 7l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { id: "borracha", nome: "Apagar", tecla: "E", dica: "Deixa o pixel transparente.",
+    svg: '<path d="M8 20h12 M5 15l9-9 5 5-8 8H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { id: "balde", nome: "Balde", tecla: "G", dica: "Pinta a área de mesma cor encostada no pixel.",
+    svg: '<path d="M5 11l7-7 7 7-7 7z M19 15c0 2 1 3 1 4a1 1 0 0 1-2 0c0-1 1-2 1-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { id: "conta", nome: "Pegar", tecla: "I", dica: "Pega a cor de um pixel e volta para o lápis.",
+    svg: '<path d="M14 4l6 6-3 1-8 8H6v-3l8-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { id: "trocar", nome: "Trocar", tecla: "R", dica: "Troca a cor clicada pela cor atual em TODAS as texturas abertas.",
+    svg: '<path d="M4 8h13l-3-3 M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+];
+
+const estado = {
+  nomePack: "Exemplo",
+  exemplo: true,
+  arquivosExtras: new Map(), // caminho relativo à raiz do pack -> Blob (pack.mcmeta, sons, etc.)
+  texturas: new Map(),       // caminho relativo a textures/ -> textura
+  abertas: [],
+  ativa: null,
+  ferramenta: "lapis",
+  cor: [63, 217, 203, 255],
+  zoom: 16,
+  grade: true,
+  recentes: [],
+  desfazer: [],
+  refazer: [],
+};
+
+const $ = id => document.getElementById(id);
+
+/* ---------- utilidades de cor ---------- */
+const hex2 = n => n.toString(16).padStart(2, "0");
+const corParaHex = c => "#" + hex2(c[0]) + hex2(c[1]) + hex2(c[2]) + (c[3] === 255 ? "" : hex2(c[3]));
+function hexParaCor(txt) {
+  const m = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(txt.trim());
+  if (!m) return null;
+  const v = parseInt(m[1], 16);
+  return [v >> 16 & 255, v >> 8 & 255, v & 255, m[2] ? parseInt(m[2], 16) : 255];
+}
+const corCss = c => `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(3)})`;
+const mesmaCor = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+
+/* ---------- textura ---------- */
+function novaTextura(caminho, caminhoNoPack, blob) {
+  return { caminho, caminhoNoPack, blob, dados: null, editada: false, url: URL.createObjectURL(blob), w: 0, h: 0 };
+}
+
+async function carregarDados(t) {
+  if (t.dados) return t.dados;
+  const bmp = await createImageBitmap(t.blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+  const c = document.createElement("canvas");
+  c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  t.dados = ctx.getImageData(0, 0, bmp.width, bmp.height);
+  t.w = bmp.width; t.h = bmp.height;
+  return t.dados;
+}
+
+function dadosParaCanvas(dados) {
+  const c = document.createElement("canvas");
+  c.width = dados.width; c.height = dados.height;
+  c.getContext("2d").putImageData(dados, 0, 0);
+  return c;
+}
+const dadosParaPng = dados => new Promise(ok => dadosParaCanvas(dados).toBlob(ok, "image/png"));
+const copiarDados = d => new ImageData(new Uint8ClampedArray(d.data), d.width, d.height);
+
+const dadosIguais = (a, b) => a.width === b.width && a.height === b.height && a.data.every((v, i) => v === b.data[i]);
+
+function marcarEditada(t) {
+  // Desfazer até voltar ao original tira a marca de editada.
+  t.editada = !(t.original && dadosIguais(t.dados, t.original));
+  if (t.url.startsWith("blob:")) URL.revokeObjectURL(t.url);
+  t.url = t.editada ? dadosParaCanvas(t.dados).toDataURL("image/png") : URL.createObjectURL(t.blob);
+  const item = document.querySelector(`[data-caminho="${CSS.escape(t.caminho)}"]`);
+  if (item) {
+    item.querySelector("img").src = t.url;
+    const dot = item.querySelector(".dot");
+    if (t.editada && !dot) item.insertAdjacentHTML("beforeend", '<span class="dot" title="Editada"></span>');
+    if (!t.editada && dot) dot.remove();
+  }
+  renderInfoPack();
+}
+
+/* ---------- exemplo inicial (desenhado aqui, não são texturas da Mojang) ---------- */
+function rng(semente) {
+  return () => { semente = (semente * 1664525 + 1013904223) >>> 0; return semente / 4294967296; };
+}
+function texturaDeFuncao(w, h, pinta) {
+  const d = new ImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const c = pinta(x, y); if (!c) continue;
+    d.data.set(c, (y * w + x) * 4);
+  }
+  return d;
+}
+async function montarExemplo() {
+  const las = {
+    white: [233, 236, 236], orange: [240, 118, 19], magenta: [189, 68, 179], light_blue: [58, 175, 217],
+    yellow: [248, 198, 39], lime: [112, 185, 25], pink: [237, 141, 172], gray: [62, 68, 71],
+    silver: [142, 142, 134], cyan: [21, 137, 145], purple: [121, 42, 172], blue: [53, 57, 157],
+    brown: [114, 71, 40], green: [84, 109, 27], red: [161, 39, 34], black: [20, 21, 25],
+  };
+  const lista = [];
+  let s = 7;
+  for (const [nome, base] of Object.entries(las)) {
+    const r = rng(s += 31);
+    lista.push([`blocks/wool_colored_${nome}.png`, texturaDeFuncao(16, 16, (x, y) => {
+      const f = 0.86 + r() * 0.14 - ((x + y * 3) % 7 === 0 ? 0.08 : 0);
+      return [...base.map(v => Math.min(255, Math.round(v * f))), 255];
+    })]);
+  }
+  const espada = [
+    "..............KK", ".............KWK", "............KWLK", "...........KWLK.",
+    "..........KWLK..", ".........KWLK...", "........KWMK....", "...KK..KWMK.....",
+    "...KGKKWMK......", "....KGWMK.......", "....KHGK........", "...KHKKGK.......",
+    "..KHK..KGK......", ".KPK....KK......", "KPPK............", ".KK.............",
+  ];
+  const cores = { K: [10, 38, 44, 255], W: [214, 255, 250, 255], L: [92, 232, 218, 255], M: [32, 170, 168, 255],
+    G: [150, 92, 220, 255], H: [96, 60, 36, 255], P: [150, 92, 220, 255] };
+  lista.push(["items/diamond_sword.png", texturaDeFuncao(16, 16, (x, y) => cores[espada[y][x]])]);
+
+  for (const [caminho, dados] of lista) {
+    const blob = await dadosParaPng(dados);
+    const t = novaTextura(caminho, PREFIXO + caminho, blob);
+    t.dados = dados; t.w = 16; t.h = 16;
+    estado.texturas.set(caminho, t);
+  }
+  estado.arquivosExtras.set("pack.mcmeta", new Blob([MCMETA_PADRAO]));
+}
+
+/* ---------- abrir pack ---------- */
+function limparPack() {
+  for (const t of estado.texturas.values()) if (t.url.startsWith("blob:")) URL.revokeObjectURL(t.url);
+  estado.texturas.clear(); estado.arquivosExtras.clear();
+  estado.abertas = []; estado.ativa = null; estado.desfazer = []; estado.refazer = [];
+}
+
+// Descobre a raiz do pack (onde fica assets/) para que pack.mcmeta vá para a raiz do zip ao exportar.
+function raizDo(caminhos) {
+  for (const c of caminhos) {
+    const i = c.indexOf("assets/minecraft/");
+    if (i >= 0) return c.slice(0, i);
+  }
+  return null;
+}
+
+async function abrirEntradas(nomePack, entradas) {
+  // entradas: [{caminho, blob: () => Promise<Blob>}]
+  const raiz = raizDo(entradas.map(e => e.caminho));
+  if (raiz === null) {
+    avisar("Não achei a pasta assets/minecraft/textures nesse pack. Ele é mesmo um resource pack?");
+    return;
+  }
+  limparPack();
+  estado.nomePack = nomePack; estado.exemplo = false;
+  let n = 0;
+  for (const e of entradas) {
+    if (!e.caminho.startsWith(raiz) || /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$)/.test(e.caminho)) continue;
+    const noPack = e.caminho.slice(raiz.length);
+    const blob = await e.blob();
+    if (noPack.startsWith(PREFIXO) && noPack.toLowerCase().endsWith(".png")) {
+      const caminho = noPack.slice(PREFIXO.length);
+      estado.texturas.set(caminho, novaTextura(caminho, noPack, blob));
+      n++;
+    } else {
+      estado.arquivosExtras.set(noPack, blob);
+    }
+  }
+  if (!estado.arquivosExtras.has("pack.mcmeta")) estado.arquivosExtras.set("pack.mcmeta", new Blob([MCMETA_PADRAO]));
+  const recuperadas = await recuperarRascunho();
+  renderTudo();
+  avisar(`${n} texturas carregadas.` + (recuperadas ? ` Recuperei ${recuperadas} edições salvas neste navegador.` : ""),
+    recuperadas ? { texto: "Descartar", acao: descartarRascunho } : null);
+}
+
+async function abrirZip(arquivo) {
+  if (!window.JSZip) { avisar("Não consegui carregar o leitor de .zip. Confira a internet e recarregue a página."); return; }
+  avisar("Abrindo " + arquivo.name + "…");
+  try {
+    const zip = await JSZip.loadAsync(arquivo);
+    const entradas = Object.values(zip.files).filter(f => !f.dir).map(f => ({ caminho: f.name, blob: () => f.async("blob") }));
+    await abrirEntradas(arquivo.name.replace(/\.zip$/i, ""), entradas);
+  } catch (err) {
+    avisar("Esse arquivo não abriu como .zip. Escolha o arquivo do pack (MajesticDiamond-....zip).");
+  }
+}
+
+async function abrirPasta(arquivos) {
+  const lista = [...arquivos];
+  if (!lista.length) return;
+  const nome = (lista[0].webkitRelativePath || "pack").split("/")[0];
+  await abrirEntradas(nome, lista.map(f => ({ caminho: f.webkitRelativePath || f.name, blob: async () => f })));
+}
+
+/* ---------- rascunho no navegador (para não perder edições ao recarregar) ---------- */
+const chaveRascunho = () => "mypixel:" + estado.nomePack;
+let timerRascunho = 0;
+function salvarRascunho() {
+  clearTimeout(timerRascunho);
+  timerRascunho = setTimeout(() => {
+    const editadas = {};
+    for (const t of estado.texturas.values()) if (t.editada) editadas[t.caminho] = t.url;
+    try { localStorage.setItem(chaveRascunho(), JSON.stringify(editadas)); } catch (_) { /* sem armazenamento: segue sem rascunho */ }
+  }, 600);
+}
+async function recuperarRascunho() {
+  let salvo = null;
+  try { salvo = JSON.parse(localStorage.getItem(chaveRascunho()) || "null"); } catch (_) { salvo = null; }
+  if (!salvo) return 0;
+  let n = 0;
+  for (const [caminho, url] of Object.entries(salvo)) {
+    const t = estado.texturas.get(caminho);
+    if (!t) continue;
+    try {
+      const blob = await (await fetch(url)).blob();
+      const bmp = await createImageBitmap(blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+      const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+      const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+      await carregarDados(t);
+      t.original = t.dados;
+      t.dados = ctx.getImageData(0, 0, bmp.width, bmp.height);
+      t.w = bmp.width; t.h = bmp.height;
+      t.editada = true; t.url = url; n++;
+    } catch (_) { /* rascunho corrompido: ignora essa textura */ }
+  }
+  return n;
+}
+async function descartarRascunho() {
+  try { localStorage.removeItem(chaveRascunho()); } catch (_) {}
+  for (const t of estado.texturas.values()) {
+    if (!t.editada || !t.original) continue;
+    t.dados = t.original; t.editada = false; t.url = URL.createObjectURL(t.blob);
+  }
+  estado.desfazer = []; estado.refazer = [];
+  renderTudo();
+  avisar("Edições salvas descartadas.");
+}
+
+/* ---------- lista lateral ---------- */
+function renderLista() {
+  const busca = $("busca").value.trim().toLowerCase();
+  const ul = $("lista");
+  const caminhos = [...estado.texturas.keys()].sort().filter(c => !busca || c.toLowerCase().includes(busca));
+  if (!caminhos.length) {
+    ul.innerHTML = `<li class="lista-vazia">Nenhuma textura com “${escapar(busca)}”.</li>`;
+    return;
+  }
+  ul.innerHTML = caminhos.map(c => {
+    const t = estado.texturas.get(c);
+    const barra = c.lastIndexOf("/");
+    const nome = c.slice(barra + 1).replace(/\.png$/, "");
+    return `<li><button type="button" class="item${estado.abertas.includes(c) ? " aberta" : ""}" data-caminho="${escapar(c)}">
+      <img src="${t.url}" alt="" loading="lazy"><span class="nome">${escapar(nome)}<span class="pasta">${escapar(c.slice(0, barra))}</span></span>${t.editada ? '<span class="dot" title="Editada"></span>' : ""}
+    </button></li>`;
+  }).join("");
+}
+function renderChips() {
+  const nomes = [...estado.texturas.keys()];
+  $("chips").innerHTML = CONJUNTOS.map((cj, i) => {
+    const n = nomes.filter(cj.teste).length;
+    return n ? `<button type="button" class="chip" data-conjunto="${i}">${cj.nome} <span>${n}</span></button>` : "";
+  }).join("") || '<span class="paleta-vazia">Nenhum conjunto neste pack.</span>';
+}
+function escapar(s) { return String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch])); }
+
+/* ---------- folha de pintura ---------- */
+const canvases = new Map(); // caminho -> {canvas, zoom}
+
+function zoomDe(t) { return Math.max(1, Math.min(estado.zoom, Math.floor(LIMITE_CANVAS / Math.max(t.w, t.h)))); }
+
+let geracaoFolha = 0;
+async function renderFolha() {
+  const folha = $("folha");
+  const geracao = ++geracaoFolha;
+  await Promise.all(estado.abertas.map(c => carregarDados(estado.texturas.get(c))));
+  if (geracao !== geracaoFolha) return; // outra renderização começou enquanto as imagens carregavam
+  canvases.clear();
+  if (!estado.abertas.length) {
+    folha.innerHTML = `<div class="vazio"><h2>Nenhuma textura aberta</h2>
+      <p>Clique numa textura da lista para abrir aqui, ou use <b>Abrir conjunto</b> para abrir várias lado a lado (todas as cores de lã, todas as espadas…) e pintar com as mesmas cores.</p></div>`;
+    $("abertas-info").textContent = "Nenhuma textura aberta";
+    renderPaleta();
+    return;
+  }
+  folha.innerHTML = "";
+  for (const caminho of estado.abertas) {
+    const t = estado.texturas.get(caminho);
+    const z = zoomDe(t);
+    const cel = document.createElement("div");
+    cel.className = "celula" + (estado.ativa === caminho ? " ativa" : "");
+    cel.dataset.caminho = caminho;
+    const nome = caminho.slice(caminho.lastIndexOf("/") + 1);
+    cel.innerHTML = `<header><b>${escapar(nome)}</b><small>${t.w}×${t.h}${z !== estado.zoom ? ` · ${z}x` : ""}</small>
+      <button type="button" class="fechar" aria-label="Fechar ${escapar(nome)}" title="Fechar">×</button></header>`;
+    const cv = document.createElement("canvas");
+    cv.width = t.w * z; cv.height = t.h * z;
+    cv.style.width = cv.width + "px"; cv.style.height = cv.height + "px";
+    cv.style.backgroundImage = `repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%)`;
+    cv.style.backgroundSize = `${z * 2}px ${z * 2}px`;
+    cel.appendChild(cv);
+    folha.appendChild(cel);
+    canvases.set(caminho, { canvas: cv, zoom: z });
+    ligarCanvas(cv, caminho);
+    desenhar(caminho);
+  }
+  $("abertas-info").textContent = estado.abertas.length === 1 ? "1 textura aberta" : `${estado.abertas.length} texturas abertas`;
+  renderPaleta();
+}
+
+function desenhar(caminho) {
+  const reg = canvases.get(caminho); if (!reg) return;
+  const t = estado.texturas.get(caminho);
+  const { canvas, zoom } = reg;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(dadosParaCanvas(t.dados), 0, 0, canvas.width, canvas.height);
+  if (estado.grade && zoom >= 6) {
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim() || "rgba(0,0,0,.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 1; x < t.w; x++) { ctx.moveTo(x * zoom + .5, 0); ctx.lineTo(x * zoom + .5, canvas.height); }
+    for (let y = 1; y < t.h; y++) { ctx.moveTo(0, y * zoom + .5); ctx.lineTo(canvas.width, y * zoom + .5); }
+    ctx.stroke();
+  }
+}
+
+function marcarAtiva(caminho) {
+  estado.ativa = caminho;
+  document.querySelectorAll(".celula").forEach(c => c.classList.toggle("ativa", c.dataset.caminho === caminho));
+}
+
+/* ---------- pintura ---------- */
+const lerPixel = (d, x, y) => { const i = (y * d.width + x) * 4; return [d.data[i], d.data[i + 1], d.data[i + 2], d.data[i + 3]]; };
+const porPixel = (d, x, y, c) => { d.data.set(c, (y * d.width + x) * 4); };
+
+function linha(x0, y0, x1, y1, f) {
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (;;) {
+    f(x0, y0);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
+function balde(d, x, y, cor) {
+  const alvo = lerPixel(d, x, y);
+  if (mesmaCor(alvo, cor)) return;
+  const pilha = [[x, y]];
+  while (pilha.length) {
+    const [px, py] = pilha.pop();
+    if (px < 0 || py < 0 || px >= d.width || py >= d.height) continue;
+    if (!mesmaCor(lerPixel(d, px, py), alvo)) continue;
+    porPixel(d, px, py, cor);
+    pilha.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+  }
+}
+
+function registrarDesfazer(caminhos) {
+  for (const c of caminhos) {
+    const t = estado.texturas.get(c);
+    if (!t.original) t.original = copiarDados(t.dados);
+  }
+  estado.desfazer.push(caminhos.map(c => ({ caminho: c, antes: copiarDados(estado.texturas.get(c).dados) })));
+  if (estado.desfazer.length > 100) estado.desfazer.shift();
+  estado.refazer = [];
+}
+
+function aplicarHistorico(de, para) {
+  const passo = de.pop(); if (!passo) return;
+  para.push(passo.map(({ caminho }) => ({ caminho, antes: copiarDados(estado.texturas.get(caminho).dados) })));
+  for (const { caminho, antes } of passo) {
+    const t = estado.texturas.get(caminho);
+    t.dados = antes; marcarEditada(t); desenhar(caminho);
+  }
+  salvarRascunho(); renderPaleta();
+}
+
+function usarCor(c) {
+  estado.cor = c.slice();
+  const h = corParaHex(c);
+  estado.recentes = [h, ...estado.recentes.filter(x => x !== h)].slice(0, 16);
+  renderCor(); renderRecentes();
+}
+
+function ligarCanvas(cv, caminho) {
+  let ultimo = null;
+  const posicao = ev => {
+    const r = cv.getBoundingClientRect();
+    const t = estado.texturas.get(caminho);
+    const x = Math.floor((ev.clientX - r.left) / r.width * t.w);
+    const y = Math.floor((ev.clientY - r.top) / r.height * t.h);
+    return [Math.max(0, Math.min(t.w - 1, x)), Math.max(0, Math.min(t.h - 1, y))];
+  };
+  cv.addEventListener("pointerdown", ev => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    marcarAtiva(caminho);
+    const t = estado.texturas.get(caminho);
+    const [x, y] = posicao(ev);
+    const f = estado.ferramenta;
+    if (f === "conta") {
+      usarCor(lerPixel(t.dados, x, y)); escolherFerramenta("lapis"); return;
+    }
+    if (f === "trocar") {
+      const alvo = lerPixel(t.dados, x, y);
+      if (mesmaCor(alvo, estado.cor)) return;
+      registrarDesfazer(estado.abertas);
+      let total = 0;
+      for (const c of estado.abertas) {
+        const tt = estado.texturas.get(c); let mudou = false;
+        for (let i = 0; i < tt.dados.data.length; i += 4) {
+          const d = tt.dados.data;
+          if (d[i] === alvo[0] && d[i + 1] === alvo[1] && d[i + 2] === alvo[2] && d[i + 3] === alvo[3]) { d.set(estado.cor, i); mudou = true; total++; }
+        }
+        if (mudou) { marcarEditada(tt); desenhar(c); }
+      }
+      usarCor(estado.cor); salvarRascunho(); renderPaleta();
+      avisar(`Troquei ${total} pixels em ${estado.abertas.length === 1 ? "1 textura" : estado.abertas.length + " texturas"}.`);
+      return;
+    }
+    registrarDesfazer([caminho]);
+    if (f === "balde") {
+      balde(t.dados, x, y, estado.cor);
+      usarCor(estado.cor); marcarEditada(t); desenhar(caminho); salvarRascunho(); renderPaleta();
+      return;
+    }
+    const cor = f === "borracha" ? [0, 0, 0, 0] : estado.cor;
+    porPixel(t.dados, x, y, cor); desenhar(caminho);
+    ultimo = [x, y];
+    cv.setPointerCapture(ev.pointerId);
+  });
+  cv.addEventListener("pointermove", ev => {
+    const t = estado.texturas.get(caminho);
+    const [x, y] = posicao(ev);
+    const c = lerPixel(t.dados, x, y);
+    $("status").textContent = `x ${x}  y ${y}  ${c[3] ? corParaHex(c) : "transparente"}`;
+    if (!ultimo) return;
+    const cor = estado.ferramenta === "borracha" ? [0, 0, 0, 0] : estado.cor;
+    linha(ultimo[0], ultimo[1], x, y, (px, py) => porPixel(t.dados, px, py, cor));
+    ultimo = [x, y];
+    desenhar(caminho);
+  });
+  const fim = () => {
+    if (!ultimo) return;
+    ultimo = null;
+    const t = estado.texturas.get(caminho);
+    if (estado.ferramenta === "lapis") usarCor(estado.cor);
+    marcarEditada(t); salvarRascunho(); renderPaleta();
+  };
+  cv.addEventListener("pointerup", fim);
+  cv.addEventListener("pointercancel", fim);
+  cv.addEventListener("pointerleave", () => { $("status").textContent = "—"; });
+}
+
+/* ---------- painel de ferramentas ---------- */
+function renderFerramentas() {
+  $("ferramentas").innerHTML = FERRAMENTAS.map(f =>
+    `<button type="button" class="ferr" data-ferr="${f.id}" aria-pressed="${estado.ferramenta === f.id}" title="${f.nome} (${f.tecla})">
+      <svg viewBox="0 0 24 24" aria-hidden="true">${f.svg}</svg>${f.nome}<kbd>${f.tecla}</kbd></button>`).join("");
+  $("dica-ferr").textContent = FERRAMENTAS.find(f => f.id === estado.ferramenta).dica;
+}
+function escolherFerramenta(id) { estado.ferramenta = id; renderFerramentas(); }
+
+function renderCor() {
+  $("amostra-cor").style.background = corCss(estado.cor);
+  $("seletor").value = "#" + hex2(estado.cor[0]) + hex2(estado.cor[1]) + hex2(estado.cor[2]);
+  if (document.activeElement !== $("hex")) $("hex").value = corParaHex(estado.cor);
+  $("alfa").value = estado.cor[3];
+  $("alfa-out").textContent = estado.cor[3];
+}
+function botoesDeCores(lista) {
+  return lista.map(h => `<button type="button" data-cor="${h}" title="${h}" aria-label="Cor ${h}"><i style="background:${corCss(hexParaCor(h))}"></i></button>`).join("");
+}
+function renderRecentes() {
+  $("recentes").innerHTML = estado.recentes.length ? botoesDeCores(estado.recentes) : '<span class="paleta-vazia">As cores que você usar aparecem aqui.</span>';
+}
+function renderPaleta() {
+  const contagem = new Map();
+  for (const c of estado.abertas) {
+    const t = estado.texturas.get(c); if (!t || !t.dados) continue;
+    const d = t.dados.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const h = corParaHex([d[i], d[i + 1], d[i + 2], d[i + 3]]);
+      contagem.set(h, (contagem.get(h) || 0) + 1);
+    }
+  }
+  const cores = [...contagem.entries()].sort((a, b) => b[1] - a[1]).slice(0, 32).map(e => e[0]);
+  $("paleta").innerHTML = cores.length ? botoesDeCores(cores) : '<span class="paleta-vazia">Abra uma textura para ver as cores dela.</span>';
+}
+function renderInfoPack() {
+  const total = estado.texturas.size;
+  const editadas = [...estado.texturas.values()].filter(t => t.editada).length;
+  $("pack-info").innerHTML = estado.exemplo
+    ? `<b>Exemplo</b> · ${total} texturas desenhadas para testar`
+    : `<b>${escapar(estado.nomePack)}</b> · ${total} texturas · ${editadas} editada${editadas === 1 ? "" : "s"}`;
+  $("aviso-exemplo").hidden = !estado.exemplo;
+}
+function renderTudo() { renderInfoPack(); renderChips(); renderLista(); renderFolha(); }
+
+/* ---------- baixar ---------- */
+const capDownloads = window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(undefined);
+
+async function salvarArquivo(nome, blob) {
+  const dl = await capDownloads;
+  if (dl === undefined) {
+    // Página aberta fora do claude.ai (arquivo local ou GitHub Pages): download normal do navegador.
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return;
+  }
+  if (dl === null) { avisar("Baixar arquivos não está disponível nesta visualização. Abra a página no claude.ai ou no navegador do computador."); return; }
+  try {
+    await dl.save({ filename: nome, data: blob });
+    avisar(`${nome} enviado para download.`);
+  } catch (err) {
+    if (err && err.code === "declined") return;
+    if (err && err.code === "rate_limited") { avisar("Já tem um download esperando confirmação. Tente de novo em instantes."); return; }
+    avisar("Não consegui baixar o arquivo nesta visualização.");
+  }
+}
+
+async function montarZip(soEditadas) {
+  if (!window.JSZip) { avisar("Não consegui carregar o gerador de .zip. Confira a internet e recarregue a página."); return null; }
+  const zip = new JSZip();
+  for (const [caminho, blob] of estado.arquivosExtras) {
+    if (soEditadas && caminho !== "pack.mcmeta" && caminho !== "pack.png") continue;
+    zip.file(caminho, blob);
+  }
+  for (const t of estado.texturas.values()) {
+    if (t.editada) zip.file(t.caminhoNoPack, await dadosParaPng(t.dados));
+    else if (!soEditadas) zip.file(t.caminhoNoPack, t.blob);
+  }
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+}
+
+async function baixarPack(soEditadas) {
+  const editadas = [...estado.texturas.values()].filter(t => t.editada).length;
+  if (soEditadas && !editadas) { avisar("Você ainda não editou nenhuma textura."); return; }
+  avisar("Montando o .zip…");
+  const blob = await montarZip(soEditadas);
+  if (!blob) return;
+  const base = estado.exemplo ? "MajesticDiamond-exemplo" : estado.nomePack;
+  await salvarArquivo(soEditadas ? `${base}-editadas.zip` : `${base}.zip`, blob);
+}
+
+async function baixarPng() {
+  const caminho = estado.ativa || estado.abertas[0];
+  if (!caminho) { avisar("Clique numa textura da folha para escolher qual baixar."); return; }
+  const t = estado.texturas.get(caminho);
+  await carregarDados(t);
+  await salvarArquivo(caminho.slice(caminho.lastIndexOf("/") + 1), await dadosParaPng(t.dados));
+}
+
+/* ---------- avisos ---------- */
+function avisar(texto, botao) {
+  const caixa = $("toasts");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = texto;
+  if (botao) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = botao.texto;
+    b.addEventListener("click", () => { el.remove(); botao.acao(); });
+    el.appendChild(b);
+  }
+  caixa.appendChild(el);
+  while (caixa.children.length > 3) caixa.firstChild.remove();
+  setTimeout(() => el.remove(), botao ? 9000 : 4000);
+}
+
+/* ---------- eventos ---------- */
+$("lista").addEventListener("click", ev => {
+  const item = ev.target.closest("[data-caminho]"); if (!item) return;
+  const c = item.dataset.caminho;
+  if (estado.abertas.includes(c)) estado.abertas = estado.abertas.filter(x => x !== c);
+  else { estado.abertas.push(c); estado.ativa = c; }
+  item.classList.toggle("aberta", estado.abertas.includes(c));
+  renderFolha();
+});
+$("chips").addEventListener("click", ev => {
+  const chip = ev.target.closest("[data-conjunto]"); if (!chip) return;
+  const cj = CONJUNTOS[+chip.dataset.conjunto];
+  estado.abertas = [...estado.texturas.keys()].filter(cj.teste).sort();
+  estado.ativa = estado.abertas[0] || null;
+  renderLista(); renderFolha();
+});
+$("folha").addEventListener("click", ev => {
+  const b = ev.target.closest(".fechar"); if (!b) return;
+  const c = b.closest(".celula").dataset.caminho;
+  estado.abertas = estado.abertas.filter(x => x !== c);
+  if (estado.ativa === c) estado.ativa = estado.abertas[0] || null;
+  renderLista(); renderFolha();
+});
+$("fechar-todas").addEventListener("click", () => { estado.abertas = []; estado.ativa = null; renderLista(); renderFolha(); });
+$("busca").addEventListener("input", renderLista);
+$("ferramentas").addEventListener("click", ev => { const b = ev.target.closest("[data-ferr]"); if (b) escolherFerramenta(b.dataset.ferr); });
+for (const id of ["paleta", "recentes"]) {
+  $(id).addEventListener("click", ev => {
+    const b = ev.target.closest("[data-cor]"); if (!b) return;
+    estado.cor = hexParaCor(b.dataset.cor); renderCor();
+    if (estado.ferramenta === "borracha" || estado.ferramenta === "conta") escolherFerramenta("lapis");
+  });
+}
+$("seletor").addEventListener("input", ev => { const c = hexParaCor(ev.target.value); c[3] = estado.cor[3]; estado.cor = c; renderCor(); });
+$("hex").addEventListener("input", ev => { const c = hexParaCor(ev.target.value); if (c) { estado.cor = c; renderCor(); } });
+$("hex").addEventListener("blur", renderCor);
+$("alfa").addEventListener("input", ev => { estado.cor[3] = +ev.target.value; renderCor(); });
+$("zoom").addEventListener("input", ev => {
+  estado.zoom = +ev.target.value; $("zoom-out").textContent = estado.zoom + "x";
+  try { localStorage.setItem("mypixel:zoom", estado.zoom); } catch (_) {}
+  renderFolha();
+});
+$("grade").addEventListener("change", ev => { estado.grade = ev.target.checked; estado.abertas.forEach(desenhar); });
+$("desfazer").addEventListener("click", () => aplicarHistorico(estado.desfazer, estado.refazer));
+$("refazer").addEventListener("click", () => aplicarHistorico(estado.refazer, estado.desfazer));
+$("abrir-zip").addEventListener("change", ev => { const f = ev.target.files[0]; if (f) abrirZip(f); ev.target.value = ""; });
+$("abrir-pasta").addEventListener("change", ev => { abrirPasta(ev.target.files); ev.target.value = ""; });
+$("baixar-pack").addEventListener("click", () => baixarPack(false));
+$("baixar-editadas").addEventListener("click", () => baixarPack(true));
+$("baixar-png").addEventListener("click", baixarPng);
+
+document.addEventListener("dragover", ev => ev.preventDefault());
+document.addEventListener("drop", ev => {
+  ev.preventDefault();
+  const f = [...(ev.dataTransfer?.files || [])].find(x => /\.zip$/i.test(x.name));
+  if (f) abrirZip(f); else avisar("Solte o arquivo .zip do pack aqui para abrir.");
+});
+
+document.addEventListener("keydown", ev => {
+  if (ev.target.matches("input, textarea")) return;
+  const k = ev.key.toLowerCase();
+  if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); aplicarHistorico(ev.shiftKey ? estado.refazer : estado.desfazer, ev.shiftKey ? estado.desfazer : estado.refazer); return; }
+  if ((ev.ctrlKey || ev.metaKey) && k === "y") { ev.preventDefault(); aplicarHistorico(estado.refazer, estado.desfazer); return; }
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const f = FERRAMENTAS.find(x => x.tecla.toLowerCase() === k);
+  if (f) { escolherFerramenta(f.id); return; }
+  if (k === "+" || k === "=") { $("zoom").value = Math.min(40, estado.zoom + 2); $("zoom").dispatchEvent(new Event("input")); }
+  if (k === "-") { $("zoom").value = Math.max(2, estado.zoom - 2); $("zoom").dispatchEvent(new Event("input")); }
+  if (k === "h") { $("grade").checked = !$("grade").checked; $("grade").dispatchEvent(new Event("change")); }
+});
+
+/* ---------- início ---------- */
+function desenharLogo() {
+  const arte = [
+    "................", "................", "....KKKKKKKK....", "...KWWLLLLMMK...",
+    "..KWWLLLLLMMDK..", ".KKKKKKKKKKKKKK.", ".KWLLLLLLLLMMDK.", "..KWLLLLLLMMDK..",
+    "...KWLLLLLMDK...", "....KWLLLMDK....", ".....KWLLMK.....", "......KLMK......",
+    ".......KK.......", "................", "................", "................",
+  ];
+  const cores = { K: "#0a262c", W: "#d6fffa", L: "#5ce8da", M: "#20aaa8", D: "#147a7c" };
+  const ctx = $("logo").getContext("2d");
+  arte.forEach((linha, y) => [...linha].forEach((ch, x) => { if (cores[ch]) { ctx.fillStyle = cores[ch]; ctx.fillRect(x, y, 1, 1); } }));
+}
+
+(async function iniciar() {
+  try { const z = +localStorage.getItem("mypixel:zoom"); if (z >= 2 && z <= 40) { estado.zoom = z; $("zoom").value = z; $("zoom-out").textContent = z + "x"; } } catch (_) {}
+  if (!("webkitdirectory" in document.createElement("input"))) $("btn-pasta").hidden = true;
+  desenharLogo();
+  renderFerramentas(); renderCor(); renderRecentes();
+  await montarExemplo();
+  await recuperarRascunho();
+  estado.abertas = [...estado.texturas.keys()].filter(CONJUNTOS[0].teste).sort().slice(0, 8);
+  estado.abertas.push("items/diamond_sword.png");
+  estado.ativa = "items/diamond_sword.png";
+  renderTudo();
+})();
+</script>
+
+</body>
+</html>
