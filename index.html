@@ -199,7 +199,7 @@ button { cursor: pointer; }
 
 @media (max-width: 960px) {
   body { overflow: auto; }
-  .main { grid-template-columns: 1fr; flex: none; }
+  .main { grid-template-columns: minmax(0, 1fr); flex: none; }
   .side { border-right: 0; border-bottom: 1px solid var(--line); max-height: 46vh; }
   .tools { border-left: 0; border-top: 1px solid var(--line); order: 3; }
   .centro { min-height: 60vh; }
@@ -285,8 +285,9 @@ button { cursor: pointer; }
     </div>
     <div>
       <p class="label">Visualização</p>
-      <label class="linha" for="zoom">Zoom <input type="range" id="zoom" min="2" max="40" value="16"><output id="zoom-out">16x</output></label>
+      <label class="linha" for="zoom">Zoom <input type="range" id="zoom" min="2" max="64" value="16"><output id="zoom-out">16x</output></label>
       <label class="check"><input type="checkbox" id="grade" checked> Mostrar grade de pixels</label>
+      <p class="dica-ferr">Ctrl + rodinha do mouse em cima da folha também muda o zoom.</p>
     </div>
     <div class="duplo">
       <button class="btn" id="desfazer" type="button">Desfazer</button>
@@ -302,7 +303,8 @@ button { cursor: pointer; }
 
 const PREFIXO = "assets/minecraft/textures/";
 const MCMETA_PADRAO = JSON.stringify({ pack: { pack_format: 1, description: "§bMajestic Diamond §7- PvP 16x" } }, null, 2);
-const LIMITE_CANVAS = 1024; // texturas grandes (gui/icons.png) usam zoom menor
+const ZOOM_MAX = 64;
+const LIMITE_CANVAS = 4096; // texturas grandes (gui/icons.png 256x256) vão até 16x para o canvas não ficar pesado demais
 
 // A mira é o quadrado do canto superior esquerdo de gui/icons.png (16x16 num pack 16x).
 // O editor mostra esse pedaço como uma "textura" própria e copia as edições de volta para o icons.png.
@@ -676,7 +678,14 @@ async function renderFolha() {
   renderPaleta();
 }
 
+const pendentes = new Set();
 function desenhar(caminho) {
+  if (!pendentes.size) requestAnimationFrame(() => { const lista = [...pendentes]; pendentes.clear(); lista.forEach(desenharAgora); });
+  pendentes.add(caminho);
+  renderPainelSelecao();
+}
+
+function desenharAgora(caminho) {
   const reg = canvases.get(caminho); if (!reg) return;
   const t = estado.texturas.get(caminho);
   const { canvas, zoom } = reg;
@@ -701,7 +710,15 @@ function desenhar(caminho) {
     ctx.lineDashOffset = 4; ctx.strokeStyle = "#fff"; ctx.strokeRect(...r);
     ctx.restore();
   }
-  renderPainelSelecao();
+}
+
+// Passos maiores quanto maior o zoom: 2, 3, 4 … 8, 10, 12 … 64.
+function mudarZoom(direcao) {
+  const passo = estado.zoom >= 32 ? 8 : estado.zoom >= 16 ? 4 : estado.zoom >= 8 ? 2 : 1;
+  const z = Math.max(2, Math.min(ZOOM_MAX, estado.zoom + direcao * passo));
+  if (z === estado.zoom) return;
+  $("zoom").value = z;
+  $("zoom").dispatchEvent(new Event("input"));
 }
 
 /* ---------- seleção e ferramenta mão ---------- */
@@ -1154,6 +1171,7 @@ $("zoom").addEventListener("input", ev => {
   try { localStorage.setItem("mypixel:zoom", estado.zoom); } catch (_) {}
   renderFolha();
 });
+$("zoom").addEventListener("change", ev => ev.target.blur()); // devolve o teclado para os atalhos (+, -, ferramentas)
 $("grade").addEventListener("change", ev => { estado.grade = ev.target.checked; estado.abertas.forEach(desenhar); });
 $("sel-fixar").addEventListener("click", limparSelecao);
 $("sel-cancelar").addEventListener("click", cancelarSelecao);
@@ -1166,6 +1184,12 @@ $("abrir-pasta").addEventListener("change", ev => { abrirPasta(ev.target.files);
 $("baixar-pack").addEventListener("click", () => baixarPack(false));
 $("baixar-editadas").addEventListener("click", () => baixarPack(true));
 $("baixar-png").addEventListener("click", baixarPng);
+
+$("folha").addEventListener("wheel", ev => {
+  if (!ev.ctrlKey && !ev.metaKey) return;
+  ev.preventDefault();
+  mudarZoom(ev.deltaY < 0 ? 1 : -1);
+}, { passive: false });
 
 document.addEventListener("dragover", ev => ev.preventDefault());
 document.addEventListener("drop", ev => {
@@ -1190,8 +1214,8 @@ document.addEventListener("keydown", ev => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   const f = FERRAMENTAS.find(x => x.tecla.toLowerCase() === k);
   if (f) { escolherFerramenta(f.id); return; }
-  if (k === "+" || k === "=") { $("zoom").value = Math.min(40, estado.zoom + 2); $("zoom").dispatchEvent(new Event("input")); }
-  if (k === "-") { $("zoom").value = Math.max(2, estado.zoom - 2); $("zoom").dispatchEvent(new Event("input")); }
+  if (k === "+" || k === "=") mudarZoom(+1);
+  if (k === "-") mudarZoom(-1);
   if (k === "h") { $("grade").checked = !$("grade").checked; $("grade").dispatchEvent(new Event("change")); }
 });
 
@@ -1209,7 +1233,7 @@ function desenharLogo() {
 }
 
 (async function iniciar() {
-  try { const z = +localStorage.getItem("mypixel:zoom"); if (z >= 2 && z <= 40) { estado.zoom = z; $("zoom").value = z; $("zoom-out").textContent = z + "x"; } } catch (_) {}
+  try { const z = +localStorage.getItem("mypixel:zoom"); if (z >= 2 && z <= ZOOM_MAX) { estado.zoom = z; $("zoom").value = z; $("zoom-out").textContent = z + "x"; } } catch (_) {}
   if (!("webkitdirectory" in document.createElement("input"))) $("btn-pasta").hidden = true;
   desenharLogo();
   renderFerramentas(); renderCor(); renderRecentes();

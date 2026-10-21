@@ -46,7 +46,8 @@ seleciona a textura inteira. No celular, use os botões do painel **Seleção**.
 Pixels arrastados para fora da textura são cortados quando você fixa.
 
 Outros atalhos: **Ctrl+Z** desfaz, **Ctrl+Y** (ou Ctrl+Shift+Z) refaz, **+ / -**
-mudam o zoom, **H** liga/desliga a grade.
+ou **Ctrl + rodinha do mouse** mudam o zoom (até 64x), **H** liga/desliga a grade.
+Texturas grandes, como o `icons.png` (256x256), vão até 16x.
 
 A paleta **Cores das texturas abertas** mostra as cores mais usadas nas
 texturas da folha, para você manter o mesmo estilo em todas.
