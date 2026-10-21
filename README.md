@@ -29,7 +29,13 @@ fechar, abra o mesmo pack de novo e elas voltam.
 | E | Apagar | Deixa o pixel transparente. |
 | G | Balde | Pinta a área de mesma cor encostada no pixel. |
 | I | Pegar | Pega a cor de um pixel. |
+| V | Mão | Arraste para selecionar; arraste dentro da seleção para mover os pixels. Com **Alt**, duplica em vez de mover. |
 | R | Trocar | Troca uma cor pela cor atual em **todas** as texturas abertas. |
+
+Com uma seleção ativa: **setas** movem 1 pixel, **Enter** fixa, **Esc** cancela
+o movimento (os pixels voltam para onde estavam), **Delete** apaga e **Ctrl+A**
+seleciona a textura inteira. No celular, use os botões do painel **Seleção**.
+Pixels arrastados para fora da textura são cortados quando você fixa.
 
 Outros atalhos: **Ctrl+Z** desfaz, **Ctrl+Y** (ou Ctrl+Shift+Z) refaz, **+ / -**
 mudam o zoom, **H** liga/desliga a grade.

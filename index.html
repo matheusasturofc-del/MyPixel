@@ -144,7 +144,8 @@ button { cursor: pointer; }
 .vazio h2 { font: 400 16px var(--font-display); color: var(--fg); margin: 0 0 10px; }
 
 /* Ferramentas */
-.ferramentas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.ferramentas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sel-info { font-size: 12px; color: var(--muted); margin: 0 0 8px; font-variant-numeric: tabular-nums; }
 .ferr {
   display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border-radius: 6px;
   border: 1px solid var(--line); background: var(--bg); font-size: 11px;
@@ -252,6 +253,16 @@ button { cursor: pointer; }
       <div class="ferramentas" id="ferramentas"></div>
       <p class="dica-ferr" id="dica-ferr"></p>
     </div>
+    <div id="painel-selecao" hidden>
+      <p class="label">Seleção</p>
+      <p class="sel-info" id="sel-info">Nada selecionado</p>
+      <div class="duplo">
+        <button class="btn" id="sel-fixar" type="button" title="Enter">Fixar</button>
+        <button class="btn" id="sel-cancelar" type="button" title="Esc">Cancelar</button>
+        <button class="btn" id="sel-apagar" type="button" title="Delete">Apagar</button>
+        <button class="btn" id="sel-tudo" type="button" title="Ctrl+A">Selecionar tudo</button>
+      </div>
+    </div>
     <div>
       <p class="label">Cor</p>
       <div class="cor-atual">
@@ -311,6 +322,9 @@ const FERRAMENTAS = [
     svg: '<path d="M5 11l7-7 7 7-7 7z M19 15c0 2 1 3 1 4a1 1 0 0 1-2 0c0-1 1-2 1-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
   { id: "conta", nome: "Pegar", tecla: "I", dica: "Pega a cor de um pixel e volta para o lápis.",
     svg: '<path d="M14 4l6 6-3 1-8 8H6v-3l8-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
+  { id: "mao", nome: "Mão", tecla: "V",
+    dica: "Arraste para selecionar. Arraste dentro da seleção para mover os pixels (com Alt, duplica). Setas movem 1 pixel, Enter fixa, Esc cancela.",
+    svg: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12 M11 11V4.5a1.5 1.5 0 0 1 3 0V12 M14 11.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.5 0-4-1-5.5-3L3.8 13.6a1.5 1.5 0 0 1 2.4-1.8L8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
   { id: "trocar", nome: "Trocar", tecla: "R", dica: "Troca a cor clicada pela cor atual em TODAS as texturas abertas.",
     svg: '<path d="M4 8h13l-3-3 M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
 ];
@@ -323,6 +337,7 @@ const estado = {
   abertas: [],
   ativa: null,
   ferramenta: "lapis",
+  selecao: null, // { caminho, x, y, w, h, flutuante, base, origem } — flutuante = pixels sendo movidos
   cor: [63, 217, 203, 255],
   zoom: 16,
   grade: true,
@@ -439,7 +454,7 @@ async function montarExemplo() {
 function limparPack() {
   for (const t of estado.texturas.values()) if (t.url.startsWith("blob:")) URL.revokeObjectURL(t.url);
   estado.texturas.clear(); estado.arquivosExtras.clear();
-  estado.abertas = []; estado.ativa = null; estado.desfazer = []; estado.refazer = [];
+  estado.abertas = []; estado.ativa = null; estado.desfazer = []; estado.refazer = []; estado.selecao = null;
 }
 
 // Descobre a raiz do pack (onde fica assets/) para que pack.mcmeta vá para a raiz do zip ao exportar.
@@ -579,6 +594,7 @@ let geracaoFolha = 0;
 async function renderFolha() {
   const folha = $("folha");
   const geracao = ++geracaoFolha;
+  if (estado.selecao && !estado.abertas.includes(estado.selecao.caminho)) limparSelecao();
   await Promise.all(estado.abertas.map(c => carregarDados(estado.texturas.get(c))));
   if (geracao !== geracaoFolha) return; // outra renderização começou enquanto as imagens carregavam
   canvases.clear();
@@ -630,6 +646,123 @@ function desenhar(caminho) {
     for (let y = 1; y < t.h; y++) { ctx.moveTo(0, y * zoom + .5); ctx.lineTo(canvas.width, y * zoom + .5); }
     ctx.stroke();
   }
+  const sel = estado.selecao;
+  if (sel && sel.caminho === caminho) {
+    const r = [sel.x * zoom + 1, sel.y * zoom + 1, sel.w * zoom - 2, sel.h * zoom - 2];
+    ctx.save();
+    ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "#000"; ctx.strokeRect(...r);
+    ctx.lineDashOffset = 4; ctx.strokeStyle = "#fff"; ctx.strokeRect(...r);
+    ctx.restore();
+  }
+  renderPainelSelecao();
+}
+
+/* ---------- seleção e ferramenta mão ---------- */
+const dentroDaSelecao = (s, x, y) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h;
+
+// Desenha os pixels flutuantes por cima da base (pixel transparente da seleção não apaga o que está embaixo).
+function comporSelecao(sel) {
+  const t = estado.texturas.get(sel.caminho);
+  const d = copiarDados(sel.base), f = sel.flutuante;
+  for (let y = 0; y < f.height; y++) for (let x = 0; x < f.width; x++) {
+    const tx = sel.x + x, ty = sel.y + y;
+    if (tx < 0 || ty < 0 || tx >= d.width || ty >= d.height) continue;
+    const i = (y * f.width + x) * 4;
+    if (f.data[i + 3]) d.data.set(f.data.subarray(i, i + 4), (ty * d.width + tx) * 4);
+  }
+  t.dados = d;
+  desenhar(sel.caminho);
+}
+
+// Tira os pixels da seleção da textura para poder movê-los (duplicar = deixa o original no lugar).
+function levantarSelecao(duplicar) {
+  const sel = estado.selecao;
+  if (!sel || sel.flutuante) return;
+  const t = estado.texturas.get(sel.caminho);
+  registrarDesfazer([sel.caminho]);
+  const f = new ImageData(sel.w, sel.h), base = copiarDados(t.dados);
+  for (let y = 0; y < sel.h; y++) for (let x = 0; x < sel.w; x++) {
+    const i = ((sel.y + y) * t.w + sel.x + x) * 4;
+    f.data.set(t.dados.data.subarray(i, i + 4), (y * sel.w + x) * 4);
+    if (!duplicar) base.data.fill(0, i, i + 4);
+  }
+  Object.assign(sel, { flutuante: f, base, origem: { x: sel.x, y: sel.y } });
+}
+
+// Cola os pixels flutuantes onde estão; o que saiu da textura é cortado.
+function fixarSelecao() {
+  const sel = estado.selecao;
+  if (!sel || !sel.flutuante) return;
+  const t = estado.texturas.get(sel.caminho);
+  sel.flutuante = null; sel.base = null;
+  const x0 = Math.max(0, sel.x), y0 = Math.max(0, sel.y);
+  const x1 = Math.min(t.w, sel.x + sel.w), y1 = Math.min(t.h, sel.y + sel.h);
+  if (x1 <= x0 || y1 <= y0) estado.selecao = null;
+  else Object.assign(sel, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+  marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(t.caminho);
+}
+
+function limparSelecao() {
+  const sel = estado.selecao;
+  if (!sel) return;
+  fixarSelecao();
+  estado.selecao = null;
+  desenhar(sel.caminho);
+  renderPainelSelecao();
+}
+
+function cancelarSelecao() {
+  const sel = estado.selecao;
+  if (!sel) return;
+  if (!sel.flutuante) { limparSelecao(); return; }
+  const t = estado.texturas.get(sel.caminho);
+  t.dados = estado.desfazer.pop()[0].antes; // o registro feito ao levantar a seleção
+  Object.assign(sel, sel.origem, { flutuante: null, base: null });
+  marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(sel.caminho);
+}
+
+function moverSelecao(dx, dy) {
+  const sel = estado.selecao;
+  if (!sel) return;
+  levantarSelecao(false);
+  sel.x += dx; sel.y += dy;
+  comporSelecao(sel);
+  marcarEditada(estado.texturas.get(sel.caminho)); salvarRascunho();
+}
+
+function apagarSelecao() {
+  const sel = estado.selecao;
+  if (!sel) return;
+  const t = estado.texturas.get(sel.caminho);
+  if (sel.flutuante) {
+    t.dados = sel.base;
+    sel.flutuante = null; sel.base = null;
+  } else {
+    registrarDesfazer([sel.caminho]);
+    for (let y = sel.y; y < sel.y + sel.h; y++) t.dados.data.fill(0, (y * t.w + sel.x) * 4, (y * t.w + sel.x + sel.w) * 4);
+  }
+  marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(sel.caminho);
+}
+
+function selecionarTudo() {
+  const caminho = estado.ativa || estado.abertas[0];
+  if (!caminho) return;
+  limparSelecao();
+  const t = estado.texturas.get(caminho);
+  escolherFerramenta("mao");
+  estado.selecao = { caminho, x: 0, y: 0, w: t.w, h: t.h };
+  marcarAtiva(caminho);
+  desenhar(caminho);
+}
+
+function renderPainelSelecao() {
+  const sel = estado.selecao;
+  $("painel-selecao").hidden = !sel && estado.ferramenta !== "mao";
+  $("sel-info").textContent = sel
+    ? `${sel.w}×${sel.h} pixels${sel.flutuante ? " · movendo (Enter fixa)" : ""}`
+    : "Arraste numa textura para selecionar.";
+  for (const id of ["sel-fixar", "sel-cancelar", "sel-apagar"]) $(id).disabled = !sel;
 }
 
 function marcarAtiva(caminho) {
@@ -677,6 +810,7 @@ function registrarDesfazer(caminhos) {
 }
 
 function aplicarHistorico(de, para) {
+  limparSelecao();
   const passo = de.pop(); if (!passo) return;
   para.push(passo.map(({ caminho }) => ({ caminho, antes: copiarDados(estado.texturas.get(caminho).dados) })));
   for (const { caminho, antes } of passo) {
@@ -695,6 +829,12 @@ function usarCor(c) {
 
 function ligarCanvas(cv, caminho) {
   let ultimo = null;
+  let arrasto = null; // ferramenta mão: { modo: "selecionar" | "mover", ... }
+  const posicaoLivre = ev => {
+    const r = cv.getBoundingClientRect();
+    const t = estado.texturas.get(caminho);
+    return [Math.floor((ev.clientX - r.left) / r.width * t.w), Math.floor((ev.clientY - r.top) / r.height * t.h)];
+  };
   const posicao = ev => {
     const r = cv.getBoundingClientRect();
     const t = estado.texturas.get(caminho);
@@ -709,6 +849,22 @@ function ligarCanvas(cv, caminho) {
     const t = estado.texturas.get(caminho);
     const [x, y] = posicao(ev);
     const f = estado.ferramenta;
+    if (f === "mao") {
+      if (estado.selecao && estado.selecao.caminho !== caminho) limparSelecao();
+      const [lx, ly] = posicaoLivre(ev);
+      const sel = estado.selecao;
+      if (sel && dentroDaSelecao(sel, lx, ly)) {
+        levantarSelecao(ev.altKey);
+        arrasto = { modo: "mover", x0: lx, y0: ly, sx: sel.x, sy: sel.y };
+      } else {
+        limparSelecao();
+        estado.selecao = { caminho, x, y, w: 1, h: 1 };
+        arrasto = { modo: "selecionar", x0: x, y0: y, moveu: false };
+        desenhar(caminho);
+      }
+      cv.setPointerCapture(ev.pointerId);
+      return;
+    }
     if (f === "conta") {
       usarCor(lerPixel(t.dados, x, y)); escolherFerramenta("lapis"); return;
     }
@@ -745,6 +901,21 @@ function ligarCanvas(cv, caminho) {
     const [x, y] = posicao(ev);
     const c = lerPixel(t.dados, x, y);
     $("status").textContent = `x ${x}  y ${y}  ${c[3] ? corParaHex(c) : "transparente"}`;
+    if (estado.ferramenta === "mao") {
+      const [lx, ly] = posicaoLivre(ev);
+      const sel = estado.selecao;
+      cv.style.cursor = arrasto?.modo === "mover" || (sel && sel.caminho === caminho && dentroDaSelecao(sel, lx, ly)) ? "move" : "crosshair";
+      if (arrasto?.modo === "mover") {
+        const nx = arrasto.sx + lx - arrasto.x0, ny = arrasto.sy + ly - arrasto.y0;
+        if (nx !== sel.x || ny !== sel.y) { sel.x = nx; sel.y = ny; comporSelecao(sel); }
+      } else if (arrasto?.modo === "selecionar") {
+        if (x !== arrasto.x0 || y !== arrasto.y0) arrasto.moveu = true;
+        Object.assign(sel, { x: Math.min(x, arrasto.x0), y: Math.min(y, arrasto.y0), w: Math.abs(x - arrasto.x0) + 1, h: Math.abs(y - arrasto.y0) + 1 });
+        desenhar(caminho);
+      }
+      return;
+    }
+    cv.style.cursor = "crosshair";
     if (!ultimo) return;
     const cor = estado.ferramenta === "borracha" ? [0, 0, 0, 0] : estado.cor;
     linha(ultimo[0], ultimo[1], x, y, (px, py) => porPixel(t.dados, px, py, cor));
@@ -752,6 +923,12 @@ function ligarCanvas(cv, caminho) {
     desenhar(caminho);
   });
   const fim = () => {
+    if (arrasto) {
+      const a = arrasto; arrasto = null;
+      if (a.modo === "selecionar" && !a.moveu) limparSelecao(); // um clique sem arrastar tira a seleção
+      if (a.modo === "mover") { marcarEditada(estado.texturas.get(caminho)); salvarRascunho(); }
+      return;
+    }
     if (!ultimo) return;
     ultimo = null;
     const t = estado.texturas.get(caminho);
@@ -770,7 +947,10 @@ function renderFerramentas() {
       <svg viewBox="0 0 24 24" aria-hidden="true">${f.svg}</svg>${f.nome}<kbd>${f.tecla}</kbd></button>`).join("");
   $("dica-ferr").textContent = FERRAMENTAS.find(f => f.id === estado.ferramenta).dica;
 }
-function escolherFerramenta(id) { estado.ferramenta = id; renderFerramentas(); }
+function escolherFerramenta(id) {
+  if (id !== "mao") limparSelecao();
+  estado.ferramenta = id; renderFerramentas(); renderPainelSelecao();
+}
 
 function renderCor() {
   $("amostra-cor").style.background = corCss(estado.cor);
@@ -848,6 +1028,7 @@ async function montarZip(soEditadas) {
 }
 
 async function baixarPack(soEditadas) {
+  fixarSelecao();
   const editadas = [...estado.texturas.values()].filter(t => t.editada).length;
   if (soEditadas && !editadas) { avisar("Você ainda não editou nenhuma textura."); return; }
   avisar("Montando o .zip…");
@@ -858,6 +1039,7 @@ async function baixarPack(soEditadas) {
 }
 
 async function baixarPng() {
+  fixarSelecao();
   const caminho = estado.ativa || estado.abertas[0];
   if (!caminho) { avisar("Clique numa textura da folha para escolher qual baixar."); return; }
   const t = estado.texturas.get(caminho);
@@ -924,6 +1106,10 @@ $("zoom").addEventListener("input", ev => {
   renderFolha();
 });
 $("grade").addEventListener("change", ev => { estado.grade = ev.target.checked; estado.abertas.forEach(desenhar); });
+$("sel-fixar").addEventListener("click", limparSelecao);
+$("sel-cancelar").addEventListener("click", cancelarSelecao);
+$("sel-apagar").addEventListener("click", apagarSelecao);
+$("sel-tudo").addEventListener("click", selecionarTudo);
 $("desfazer").addEventListener("click", () => aplicarHistorico(estado.desfazer, estado.refazer));
 $("refazer").addEventListener("click", () => aplicarHistorico(estado.refazer, estado.desfazer));
 $("abrir-zip").addEventListener("change", ev => { const f = ev.target.files[0]; if (f) abrirZip(f); ev.target.value = ""; });
@@ -944,6 +1130,14 @@ document.addEventListener("keydown", ev => {
   const k = ev.key.toLowerCase();
   if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); aplicarHistorico(ev.shiftKey ? estado.refazer : estado.desfazer, ev.shiftKey ? estado.desfazer : estado.refazer); return; }
   if ((ev.ctrlKey || ev.metaKey) && k === "y") { ev.preventDefault(); aplicarHistorico(estado.refazer, estado.desfazer); return; }
+  if ((ev.ctrlKey || ev.metaKey) && k === "a") { ev.preventDefault(); selecionarTudo(); return; }
+  if (estado.selecao && !ev.ctrlKey && !ev.metaKey) {
+    const setas = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] };
+    if (k === "escape") { cancelarSelecao(); return; }
+    if (k === "enter") { limparSelecao(); return; }
+    if (k === "delete" || k === "backspace") { ev.preventDefault(); apagarSelecao(); return; }
+    if (setas[k]) { ev.preventDefault(); moverSelecao(...setas[k]); return; }
+  }
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   const f = FERRAMENTAS.find(x => x.tecla.toLowerCase() === k);
   if (f) { escolherFerramenta(f.id); return; }
