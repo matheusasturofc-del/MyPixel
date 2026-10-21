@@ -27,6 +27,8 @@
   --check-a: #ffffff;
   --check-b: #cfd8e0;
   --grid: rgba(22, 32, 43, .14);
+  --check-escuro-a: #3a434d;  /* fundo da Mira: escuro nos dois temas, para a cruz branca aparecer */
+  --check-escuro-b: #2b323a;
   --font-display: "Silkscreen", "Courier New", monospace;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
@@ -302,7 +304,13 @@ const PREFIXO = "assets/minecraft/textures/";
 const MCMETA_PADRAO = JSON.stringify({ pack: { pack_format: 1, description: "§bMajestic Diamond §7- PvP 16x" } }, null, 2);
 const LIMITE_CANVAS = 1024; // texturas grandes (gui/icons.png) usam zoom menor
 
+// A mira é o quadrado do canto superior esquerdo de gui/icons.png (16x16 num pack 16x).
+// O editor mostra esse pedaço como uma "textura" própria e copia as edições de volta para o icons.png.
+const MIRA = "gui/icons.png#mira";
+
 const CONJUNTOS = [
+  { nome: "Mira", teste: n => n === MIRA,
+    aviso: "No jogo a mira aparece com as cores invertidas contra o fundo. Desenhe em branco e capriche no formato." },
   { nome: "Lã", teste: n => n.startsWith("blocks/wool_colored_") },
   { nome: "Espadas", teste: n => /^items\/[a-z]+_sword\.png$/.test(n) },
   { nome: "Arco", teste: n => n.startsWith("items/bow_") },
@@ -366,6 +374,13 @@ function novaTextura(caminho, caminhoNoPack, blob) {
 }
 
 async function carregarDados(t) {
+  if (t.recorte) {
+    // sempre recorta de novo, para refletir edições feitas direto no icons.png
+    const fonte = estado.texturas.get(t.recorte);
+    await carregarDados(fonte);
+    recortar(t, fonte);
+    return t.dados;
+  }
   if (t.dados) return t.dados;
   const bmp = await createImageBitmap(t.blob, { premultiplyAlpha: "none", colorSpaceConversion: "none" });
   const c = document.createElement("canvas");
@@ -388,7 +403,28 @@ const copiarDados = d => new ImageData(new Uint8ClampedArray(d.data), d.width, d
 
 const dadosIguais = (a, b) => a.width === b.width && a.height === b.height && a.data.every((v, i) => v === b.data[i]);
 
+function recortar(r, fonte) {
+  const lado = Math.max(1, Math.round(fonte.w / 16)); // 16 num icons.png 256x256, 32 num pack 32x...
+  const d = new ImageData(lado, lado);
+  for (let y = 0; y < lado; y++) d.data.set(fonte.dados.data.subarray(y * fonte.w * 4, (y * fonte.w + lado) * 4), y * lado * 4);
+  r.dados = d; r.w = lado; r.h = lado;
+}
+
+function criarRecortes() {
+  if (!estado.texturas.has("gui/icons.png")) return;
+  estado.texturas.set(MIRA, { caminho: MIRA, recorte: "gui/icons.png", rotulo: "Mira · canto do icons.png", dados: null, w: 0, h: 0, editada: false, url: "" });
+}
+
 function marcarEditada(t) {
+  if (t.recorte) {
+    // copia o recorte editado de volta para o canto do icons.png
+    const fonte = estado.texturas.get(t.recorte);
+    if (!fonte.original) fonte.original = copiarDados(fonte.dados);
+    for (let y = 0; y < t.h; y++) fonte.dados.data.set(t.dados.data.subarray(y * t.w * 4, (y + 1) * t.w * 4), y * fonte.w * 4);
+    marcarEditada(fonte);
+    desenhar(fonte.caminho);
+    return;
+  }
   // Desfazer até voltar ao original tira a marca de editada.
   t.editada = !(t.original && dadosIguais(t.dados, t.original));
   if (t.url.startsWith("blob:")) URL.revokeObjectURL(t.url);
@@ -399,6 +435,9 @@ function marcarEditada(t) {
     const dot = item.querySelector(".dot");
     if (t.editada && !dot) item.insertAdjacentHTML("beforeend", '<span class="dot" title="Editada"></span>');
     if (!t.editada && dot) dot.remove();
+  }
+  for (const r of estado.texturas.values()) {
+    if (r.recorte === t.caminho && canvases.has(r.caminho)) { recortar(r, t); desenhar(r.caminho); }
   }
   renderInfoPack();
 }
@@ -440,14 +479,18 @@ async function montarExemplo() {
   const cores = { K: [10, 38, 44, 255], W: [214, 255, 250, 255], L: [92, 232, 218, 255], M: [32, 170, 168, 255],
     G: [150, 92, 220, 255], H: [96, 60, 36, 255], P: [150, 92, 220, 255] };
   lista.push(["items/diamond_sword.png", texturaDeFuncao(16, 16, (x, y) => cores[espada[y][x]])]);
+  // icons.png de exemplo: só uma mira em cruz no canto (o resto fica transparente)
+  lista.push(["gui/icons.png", texturaDeFuncao(256, 256, (x, y) =>
+    (x === 7 && y >= 3 && y <= 11) || (y === 7 && x >= 3 && x <= 11) ? [255, 255, 255, 255] : null)]);
 
   for (const [caminho, dados] of lista) {
     const blob = await dadosParaPng(dados);
     const t = novaTextura(caminho, PREFIXO + caminho, blob);
-    t.dados = dados; t.w = 16; t.h = 16;
+    t.dados = dados; t.w = dados.width; t.h = dados.height;
     estado.texturas.set(caminho, t);
   }
   estado.arquivosExtras.set("pack.mcmeta", new Blob([MCMETA_PADRAO]));
+  criarRecortes();
 }
 
 /* ---------- abrir pack ---------- */
@@ -489,6 +532,7 @@ async function abrirEntradas(nomePack, entradas) {
     }
   }
   if (!estado.arquivosExtras.has("pack.mcmeta")) estado.arquivosExtras.set("pack.mcmeta", new Blob([MCMETA_PADRAO]));
+  criarRecortes();
   const recuperadas = await recuperarRascunho();
   renderTudo();
   avisar(`${n} texturas carregadas.` + (recuperadas ? ` Recuperei ${recuperadas} edições salvas neste navegador.` : ""),
@@ -562,7 +606,7 @@ async function descartarRascunho() {
 function renderLista() {
   const busca = $("busca").value.trim().toLowerCase();
   const ul = $("lista");
-  const caminhos = [...estado.texturas.keys()].sort().filter(c => !busca || c.toLowerCase().includes(busca));
+  const caminhos = [...estado.texturas.keys()].sort().filter(c => !estado.texturas.get(c).recorte && (!busca || c.toLowerCase().includes(busca)));
   if (!caminhos.length) {
     ul.innerHTML = `<li class="lista-vazia">Nenhuma textura com “${escapar(busca)}”.</li>`;
     return;
@@ -612,13 +656,15 @@ async function renderFolha() {
     const cel = document.createElement("div");
     cel.className = "celula" + (estado.ativa === caminho ? " ativa" : "");
     cel.dataset.caminho = caminho;
-    const nome = caminho.slice(caminho.lastIndexOf("/") + 1);
+    const nome = t.rotulo || caminho.slice(caminho.lastIndexOf("/") + 1);
     cel.innerHTML = `<header><b>${escapar(nome)}</b><small>${t.w}×${t.h}${z !== estado.zoom ? ` · ${z}x` : ""}</small>
       <button type="button" class="fechar" aria-label="Fechar ${escapar(nome)}" title="Fechar">×</button></header>`;
     const cv = document.createElement("canvas");
     cv.width = t.w * z; cv.height = t.h * z;
     cv.style.width = cv.width + "px"; cv.style.height = cv.height + "px";
-    cv.style.backgroundImage = `repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%)`;
+    cv.style.backgroundImage = t.recorte
+      ? `repeating-conic-gradient(var(--check-escuro-a) 0 25%, var(--check-escuro-b) 0 50%)`
+      : `repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%)`;
     cv.style.backgroundSize = `${z * 2}px ${z * 2}px`;
     cel.appendChild(cv);
     folha.appendChild(cel);
@@ -980,7 +1026,7 @@ function renderPaleta() {
   $("paleta").innerHTML = cores.length ? botoesDeCores(cores) : '<span class="paleta-vazia">Abra uma textura para ver as cores dela.</span>';
 }
 function renderInfoPack() {
-  const total = estado.texturas.size;
+  const total = [...estado.texturas.values()].filter(t => !t.recorte).length;
   const editadas = [...estado.texturas.values()].filter(t => t.editada).length;
   $("pack-info").innerHTML = estado.exemplo
     ? `<b>Exemplo</b> · ${total} texturas desenhadas para testar`
@@ -1021,6 +1067,7 @@ async function montarZip(soEditadas) {
     zip.file(caminho, blob);
   }
   for (const t of estado.texturas.values()) {
+    if (t.recorte) continue;
     if (t.editada) zip.file(t.caminhoNoPack, await dadosParaPng(t.dados));
     else if (!soEditadas) zip.file(t.caminhoNoPack, t.blob);
   }
@@ -1040,8 +1087,9 @@ async function baixarPack(soEditadas) {
 
 async function baixarPng() {
   fixarSelecao();
-  const caminho = estado.ativa || estado.abertas[0];
+  let caminho = estado.ativa || estado.abertas[0];
   if (!caminho) { avisar("Clique numa textura da folha para escolher qual baixar."); return; }
+  if (estado.texturas.get(caminho).recorte) caminho = estado.texturas.get(caminho).recorte; // o jogo usa o icons.png inteiro
   const t = estado.texturas.get(caminho);
   await carregarDados(t);
   await salvarArquivo(caminho.slice(caminho.lastIndexOf("/") + 1), await dadosParaPng(t.dados));
@@ -1075,6 +1123,7 @@ $("lista").addEventListener("click", ev => {
 $("chips").addEventListener("click", ev => {
   const chip = ev.target.closest("[data-conjunto]"); if (!chip) return;
   const cj = CONJUNTOS[+chip.dataset.conjunto];
+  if (cj.aviso) avisar(cj.aviso);
   estado.abertas = [...estado.texturas.keys()].filter(cj.teste).sort();
   estado.ativa = estado.abertas[0] || null;
   renderLista(); renderFolha();

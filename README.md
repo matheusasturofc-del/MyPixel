@@ -21,6 +21,14 @@ pack **Majestic Diamond** (1.8). Roda direto no navegador: não precisa instalar
 As edições ficam salvas no navegador enquanto você trabalha: se a página
 fechar, abra o mesmo pack de novo e elas voltam.
 
+## Mira
+
+O conjunto **Mira** abre só o canto do `gui/icons.png` onde fica a mira
+(16x16 num pack 16x), com zoom grande e fundo escuro. O que você pinta ali vai
+direto para o lugar certo do `icons.png`, e o resto da imagem (corações, fome,
+armadura) não é tocado. No jogo a mira aparece com as cores invertidas contra
+o fundo, então desenhe em branco e mude o formato.
+
 ## Ferramentas
 
 | Tecla | Ferramenta | O que faz |
