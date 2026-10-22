@@ -80,7 +80,7 @@ button { cursor: pointer; }
 .btn input[type=file] { display: none; }
 
 /* Corpo: três colunas */
-.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr) 250px; }
+.main { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr) 272px; }
 .side, .tools { background: var(--panel); min-height: 0; overflow: auto; }
 .side { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
 .tools { border-left: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 18px; }
@@ -146,11 +146,30 @@ button { cursor: pointer; }
 .vazio h2 { font: 400 16px var(--font-display); color: var(--fg); margin: 0 0 10px; }
 
 /* Ferramentas */
-.ferramentas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ferramentas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.opcoes { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.opcoes:empty { display: none; }
+.mini { font-size: 12px; color: var(--muted); margin: 0; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; padding: 5px 4px; border: 0; background: var(--bg); font-size: 12px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.triplo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.triplo .btn, .duplo .btn { justify-content: center; padding: 7px 6px; min-width: 0; }
+.triplo .btn { white-space: normal; font-size: 12.5px; line-height: 1.2; text-align: center; }
+.previa { display: flex; align-items: flex-end; gap: 12px; }
+.previa canvas {
+  image-rendering: pixelated; max-width: 100%; border: 1px solid var(--line);
+  background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 8px 8px;
+}
+#previa-1x { flex: none; }
+#previa-3x3 { min-width: 0; }
+.centro-bar .acoes { display: flex; gap: 6px; }
+.centro-bar .acoes .btn { padding: 4px 10px; font-size: 13px; }
 .sel-info { font-size: 12px; color: var(--muted); margin: 0 0 8px; font-variant-numeric: tabular-nums; }
 .ferr {
-  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; border-radius: 6px;
-  border: 1px solid var(--line); background: var(--bg); font-size: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 1px 5px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); font-size: 10.5px; min-width: 0;
 }
 .ferr svg { width: 20px; height: 20px; }
 .ferr kbd { font: 10px var(--font-mono); color: var(--muted); }
@@ -178,7 +197,7 @@ button { cursor: pointer; }
 }
 .paleta button i { position: absolute; inset: 0; }
 .paleta button:hover { outline: 2px solid var(--accent); }
-.paleta-vazia { font-size: 12px; color: var(--muted); }
+.paleta-vazia { font-size: 12px; color: var(--muted); grid-column: 1 / -1; }
 .linha { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .linha input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
 .linha output { font-family: var(--font-mono); font-size: 12px; width: 4ch; text-align: right; }
@@ -244,6 +263,10 @@ button { cursor: pointer; }
     <div class="centro-bar">
       <span id="abertas-info">Nenhuma textura aberta</span>
       <button class="link" id="fechar-todas" type="button">Fechar todas</button>
+      <span class="acoes">
+        <button class="btn" id="desfazer" type="button" title="Ctrl+Z">Desfazer</button>
+        <button class="btn" id="refazer" type="button" title="Ctrl+Y">Refazer</button>
+      </span>
       <span class="status" id="status">—</span>
     </div>
     <div id="folha"></div>
@@ -254,16 +277,7 @@ button { cursor: pointer; }
       <p class="label">Ferramenta</p>
       <div class="ferramentas" id="ferramentas"></div>
       <p class="dica-ferr" id="dica-ferr"></p>
-    </div>
-    <div id="painel-selecao" hidden>
-      <p class="label">Seleção</p>
-      <p class="sel-info" id="sel-info">Nada selecionado</p>
-      <div class="duplo">
-        <button class="btn" id="sel-fixar" type="button" title="Enter">Fixar</button>
-        <button class="btn" id="sel-cancelar" type="button" title="Esc">Cancelar</button>
-        <button class="btn" id="sel-apagar" type="button" title="Delete">Apagar</button>
-        <button class="btn" id="sel-tudo" type="button" title="Ctrl+A">Selecionar tudo</button>
-      </div>
+      <div class="opcoes" id="opcoes"></div>
     </div>
     <div>
       <p class="label">Cor</p>
@@ -273,6 +287,49 @@ button { cursor: pointer; }
           <input id="hex" type="text" spellcheck="false" aria-label="Cor em hexadecimal" maxlength="9">
           <label class="alfa">Opac. <input type="range" id="alfa" min="0" max="255" value="255"><output id="alfa-out">255</output></label>
         </div>
+      </div>
+      <p class="dica-ferr">Alt + clique com o lápis, balde ou formas pega a cor.</p>
+    </div>
+    <div>
+      <p class="label">Prévia</p>
+      <div class="previa"><canvas id="previa-1x" width="16" height="16" title="Tamanho real"></canvas><canvas id="previa-3x3" width="48" height="48" title="Repetida 3×3"></canvas></div>
+      <p class="dica-ferr" id="previa-info">Tamanho real e repetida 3×3, como fica num bloco.</p>
+    </div>
+    <div id="painel-selecao">
+      <p class="label">Seleção</p>
+      <p class="sel-info" id="sel-info">Nada selecionado</p>
+      <div class="duplo">
+        <button class="btn" id="sel-fixar" type="button" title="Enter">Fixar</button>
+        <button class="btn" id="sel-cancelar" type="button" title="Esc">Cancelar</button>
+        <button class="btn" id="sel-duplicar" type="button" title="Ctrl+D ou Alt + arrastar">Duplicar</button>
+        <button class="btn" id="sel-apagar" type="button" title="Delete">Apagar</button>
+      </div>
+      <div class="triplo" style="margin-top:6px">
+        <button class="btn" id="sel-copiar" type="button" title="Ctrl+C">Copiar</button>
+        <button class="btn" id="sel-recortar" type="button" title="Ctrl+X">Recortar</button>
+        <button class="btn" id="sel-colar" type="button" title="Ctrl+V">Colar</button>
+      </div>
+      <button class="btn" id="sel-tudo" type="button" title="Ctrl+A" style="margin-top:6px;width:100%;justify-content:center">Selecionar tudo</button>
+      <p class="dica-ferr" id="area-info">Para colar em outra textura, clique no nome dela e depois em Colar.</p>
+    </div>
+    <div>
+      <p class="label">Girar e espelhar</p>
+      <p class="sel-info" id="transf-alvo">Na textura ativa</p>
+      <div class="triplo">
+        <button class="btn" id="tr-h" type="button" title="Shift+H">↔ Espelhar</button>
+        <button class="btn" id="tr-v" type="button" title="Shift+V">↕ Espelhar</button>
+        <button class="btn" id="tr-girar" type="button" title="Shift+R">↻ Girar</button>
+      </div>
+    </div>
+    <div>
+      <p class="label">Ajustar cores</p>
+      <p class="sel-info" id="ajuste-alvo">Na textura ativa</p>
+      <label class="linha" for="aj-matiz">Matiz <input type="range" id="aj-matiz" min="-180" max="180" value="0"><output id="aj-matiz-out">0</output></label>
+      <label class="linha" for="aj-sat">Saturação <input type="range" id="aj-sat" min="-100" max="100" value="0"><output id="aj-sat-out">0</output></label>
+      <label class="linha" for="aj-luz">Brilho <input type="range" id="aj-luz" min="-100" max="100" value="0"><output id="aj-luz-out">0</output></label>
+      <div class="duplo" style="margin-top:6px">
+        <button class="btn" id="aj-aplicar" type="button">Aplicar</button>
+        <button class="btn" id="aj-descartar" type="button">Descartar</button>
       </div>
     </div>
     <div>
@@ -288,10 +345,6 @@ button { cursor: pointer; }
       <label class="linha" for="zoom">Zoom <input type="range" id="zoom" min="2" max="64" value="16"><output id="zoom-out">16x</output></label>
       <label class="check"><input type="checkbox" id="grade" checked> Mostrar grade de pixels</label>
       <p class="dica-ferr">Ctrl + rodinha do mouse em cima da folha também muda o zoom.</p>
-    </div>
-    <div class="duplo">
-      <button class="btn" id="desfazer" type="button">Desfazer</button>
-      <button class="btn" id="refazer" type="button">Refazer</button>
     </div>
   </aside>
 </div>
@@ -323,21 +376,41 @@ const CONJUNTOS = [
   { nome: "Minérios", teste: n => /^blocks\/[a-z]+_ore\.png$/.test(n) },
 ];
 
+const traco = d => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
 const FERRAMENTAS = [
-  { id: "lapis", nome: "Lápis", tecla: "B", dica: "Pinta um pixel. Arraste para desenhar.",
-    svg: '<path d="M4 20l1-5L15 5l4 4L9 19z M13 7l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
-  { id: "borracha", nome: "Apagar", tecla: "E", dica: "Deixa o pixel transparente.",
-    svg: '<path d="M8 20h12 M5 15l9-9 5 5-8 8H8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
-  { id: "balde", nome: "Balde", tecla: "G", dica: "Pinta a área de mesma cor encostada no pixel.",
-    svg: '<path d="M5 11l7-7 7 7-7 7z M19 15c0 2 1 3 1 4a1 1 0 0 1-2 0c0-1 1-2 1-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
-  { id: "conta", nome: "Pegar", tecla: "I", dica: "Pega a cor de um pixel e volta para o lápis.",
-    svg: '<path d="M14 4l6 6-3 1-8 8H6v-3l8-8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' },
-  { id: "mao", nome: "Mão", tecla: "V",
-    dica: "Arraste para selecionar. Arraste dentro da seleção para mover os pixels (com Alt, duplica). Setas movem 1 pixel, Enter fixa, Esc cancela.",
-    svg: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12 M11 11V4.5a1.5 1.5 0 0 1 3 0V12 M14 11.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.5 0-4-1-5.5-3L3.8 13.6a1.5 1.5 0 0 1 2.4-1.8L8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
-  { id: "trocar", nome: "Trocar", tecla: "R", dica: "Troca a cor clicada pela cor atual em TODAS as texturas abertas.",
-    svg: '<path d="M4 8h13l-3-3 M20 16H7l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { id: "lapis", nome: "Lápis", tecla: "B", svg: traco("M4 20l1-5L15 5l4 4L9 19z M13 7l4 4"),
+    dica: "Pinta pixels. Arraste para desenhar. Shift + clique faz uma linha reta desde o último ponto." },
+  { id: "borracha", nome: "Apagar", tecla: "E", svg: traco("M8 20h12 M5 15l9-9 5 5-8 8H8z"),
+    dica: "Deixa os pixels transparentes." },
+  { id: "balde", nome: "Balde", tecla: "G", svg: traco("M5 11l7-7 7 7-7 7z M19 15c0 2 1 3 1 4a1 1 0 0 1-2 0c0-1 1-2 1-4z"),
+    dica: "Pinta a área da mesma cor. Desmarque “Só a área encostada” para pintar essa cor na textura inteira." },
+  { id: "conta", nome: "Pegar", tecla: "I", svg: traco("M14 4l6 6-3 1-8 8H6v-3l8-8z"),
+    dica: "Pega a cor de um pixel e volta para a ferramenta de antes." },
+  { id: "linha", nome: "Linha", tecla: "L", svg: traco("M5 19L19 5"),
+    dica: "Arraste para fazer uma linha reta. Com Shift, trava em 0°, 45° ou 90°." },
+  { id: "retangulo", nome: "Retângulo", tecla: "U", svg: traco("M4 6h16v12H4z"),
+    dica: "Arraste para fazer um retângulo. Com Shift, vira quadrado." },
+  { id: "circulo", nome: "Círculo", tecla: "O", svg: traco("M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z"),
+    dica: "Arraste para fazer um círculo ou elipse. Com Shift, fica redondo." },
+  { id: "luz", nome: "Luz", tecla: "D", svg: traco("M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5L19 19 M5 19l1.5-1.5 M17.5 6.5L19 5"),
+    dica: "Passe por cima para clarear ou escurecer os pixels (cada pixel muda uma vez por traço). Bom para luz e sombra." },
+  { id: "xadrez", nome: "Xadrez", tecla: "K", svg: '<path d="M4 4h5v5H4z M14 4h5v5h-5z M9 9h5v5H9z M4 14h5v5H4z M14 14h5v5h-5z" fill="currentColor"/>',
+    dica: "Pinta um pixel sim, um não (pontilhado). Bom para degradês e texturas." },
+  { id: "mao", nome: "Mão", tecla: "V", svg: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12 M11 11V4.5a1.5 1.5 0 0 1 3 0V12 M14 11.5V6a1.5 1.5 0 0 1 3 0v7c0 4-2.5 7-6 7-2.5 0-4-1-5.5-3L3.8 13.6a1.5 1.5 0 0 1 2.4-1.8L8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+    dica: "Arraste para selecionar. Arraste dentro da seleção para mover (com Alt, duplica). Setas movem 1 pixel, Enter fixa, Esc cancela." },
+  { id: "varinha", nome: "Varinha", tecla: "W", svg: traco("M4 20L15 9 M15 3v3 M21 9h-3 M19.5 4.5L17.5 6.5 M10 4l1 1.5 M20 14l-1.5-1"),
+    dica: "Clique para selecionar a área da mesma cor. Shift + clique soma à seleção. Arraste a seleção para mover." },
+  { id: "trocar", nome: "Trocar", tecla: "R", svg: traco("M4 8h13l-3-3 M20 16H7l3 3"),
+    dica: "Troca a cor clicada pela cor atual em TODAS as texturas abertas." },
 ];
+const PINTURA = new Set(["lapis", "balde", "linha", "retangulo", "circulo", "xadrez"]); // Alt + clique pega a cor
+const FORMAS = new Set(["linha", "retangulo", "circulo"]);
+const OPCOES_DA_FERRAMENTA = {
+  lapis: ["tamanho", "espelho"], borracha: ["tamanho", "espelho"], xadrez: ["tamanho", "espelho"],
+  luz: ["luzModo", "tamanho", "espelho"], linha: ["tamanho", "espelho"],
+  retangulo: ["preenchido", "tamanho", "espelho"], circulo: ["preenchido", "tamanho", "espelho"],
+  balde: ["contiguo"], varinha: ["contiguo"],
+};
 
 const estado = {
   nomePack: "Exemplo",
@@ -347,7 +420,13 @@ const estado = {
   abertas: [],
   ativa: null,
   ferramenta: "lapis",
-  selecao: null, // { caminho, x, y, w, h, flutuante, base, origem } — flutuante = pixels sendo movidos
+  ferramentaAnterior: "lapis",
+  opcoes: { tamanho: 1, espelho: "nenhum", preenchido: false, contiguo: true, luzModo: "clarear" },
+  // { caminho, x, y, w, h, mascara, flutuante, base, origem, colado }: mascara (w×h, 1 = selecionado) só existe
+  // em seleções que não são retângulo (varinha); flutuante = pixels sendo movidos por cima da base.
+  selecao: null,
+  areaTransferencia: null, // { dados, mascara, x, y }
+  ultimoPonto: null,       // para Shift + clique fazer linha com o lápis
   cor: [63, 217, 203, 255],
   zoom: 16,
   grade: true,
@@ -500,6 +579,7 @@ function limparPack() {
   for (const t of estado.texturas.values()) if (t.url.startsWith("blob:")) URL.revokeObjectURL(t.url);
   estado.texturas.clear(); estado.arquivosExtras.clear();
   estado.abertas = []; estado.ativa = null; estado.desfazer = []; estado.refazer = []; estado.selecao = null;
+  estado.ultimoPonto = null; ajuste = null; zerarAjuste();
 }
 
 // Descobre a raiz do pack (onde fica assets/) para que pack.mcmeta vá para a raiz do zip ao exportar.
@@ -640,6 +720,7 @@ let geracaoFolha = 0;
 async function renderFolha() {
   const folha = $("folha");
   const geracao = ++geracaoFolha;
+  if (ajuste && !estado.abertas.includes(ajuste.caminho)) aplicarAjuste();
   if (estado.selecao && !estado.abertas.includes(estado.selecao.caminho)) limparSelecao();
   await Promise.all(estado.abertas.map(c => carregarDados(estado.texturas.get(c))));
   if (geracao !== geracaoFolha) return; // outra renderização começou enquanto as imagens carregavam
@@ -685,7 +766,10 @@ function desenhar(caminho) {
   renderPainelSelecao();
 }
 
+const corDoTema = nome => getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+
 function desenharAgora(caminho) {
+  if (caminho === estado.ativa) renderPrevia();
   const reg = canvases.get(caminho); if (!reg) return;
   const t = estado.texturas.get(caminho);
   const { canvas, zoom } = reg;
@@ -694,20 +778,38 @@ function desenharAgora(caminho) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(dadosParaCanvas(t.dados), 0, 0, canvas.width, canvas.height);
   if (estado.grade && zoom >= 6) {
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim() || "rgba(0,0,0,.15)";
+    ctx.strokeStyle = corDoTema("--grid") || "rgba(0,0,0,.15)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = 1; x < t.w; x++) { ctx.moveTo(x * zoom + .5, 0); ctx.lineTo(x * zoom + .5, canvas.height); }
     for (let y = 1; y < t.h; y++) { ctx.moveTo(0, y * zoom + .5); ctx.lineTo(canvas.width, y * zoom + .5); }
     ctx.stroke();
   }
+  // eixo do espelho, quando a ferramenta usa espelho
+  const e = estado.opcoes.espelho;
+  if (e !== "nenhum" && (OPCOES_DA_FERRAMENTA[estado.ferramenta] || []).includes("espelho")) {
+    ctx.save();
+    ctx.strokeStyle = corDoTema("--accent") || "#0b8f88"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    if (e === "h" || e === "hv") { ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); }
+    if (e === "v" || e === "hv") { ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); }
+    ctx.stroke(); ctx.restore();
+  }
   const sel = estado.selecao;
   if (sel && sel.caminho === caminho) {
-    const r = [sel.x * zoom + 1, sel.y * zoom + 1, sel.w * zoom - 2, sel.h * zoom - 2];
-    ctx.save();
-    ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "#000"; ctx.strokeRect(...r);
-    ctx.lineDashOffset = 4; ctx.strokeStyle = "#fff"; ctx.strokeRect(...r);
+    // contorno pelas bordas dos pixels selecionados (funciona para retângulo e para a varinha)
+    const m = sel.mascara, dentro = (a, b) => a >= 0 && b >= 0 && a < sel.w && b < sel.h && (!m || m[b * sel.w + a] === 1);
+    ctx.save(); ctx.beginPath();
+    for (let y = 0; y < sel.h; y++) for (let x = 0; x < sel.w; x++) {
+      if (!dentro(x, y)) continue;
+      const X = (sel.x + x) * zoom, Y = (sel.y + y) * zoom;
+      if (!dentro(x - 1, y)) { ctx.moveTo(X, Y); ctx.lineTo(X, Y + zoom); }
+      if (!dentro(x + 1, y)) { ctx.moveTo(X + zoom, Y); ctx.lineTo(X + zoom, Y + zoom); }
+      if (!dentro(x, y - 1)) { ctx.moveTo(X, Y); ctx.lineTo(X + zoom, Y); }
+      if (!dentro(x, y + 1)) { ctx.moveTo(X, Y + zoom); ctx.lineTo(X + zoom, Y + zoom); }
+    }
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(0,0,0,.85)"; ctx.stroke();
+    ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.strokeStyle = "#fff"; ctx.stroke();
     ctx.restore();
   }
 }
@@ -721,8 +823,65 @@ function mudarZoom(direcao) {
   $("zoom").dispatchEvent(new Event("input"));
 }
 
-/* ---------- seleção e ferramenta mão ---------- */
-const dentroDaSelecao = (s, x, y) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h;
+function renderPrevia() {
+  const t = estado.ativa && estado.texturas.get(estado.ativa);
+  const c1 = $("previa-1x"), c3 = $("previa-3x3");
+  if (!t || !t.dados) { c1.width = c1.height = 16; c3.width = c3.height = 48; $("previa-info").textContent = "Clique numa textura para ver a prévia."; return; }
+  const fonte = dadosParaCanvas(t.dados);
+  c1.width = t.w; c1.height = t.h;
+  c1.getContext("2d").drawImage(fonte, 0, 0);
+  const escala = Math.max(1, Math.floor(168 / (3 * Math.max(t.w, t.h))));
+  c3.width = t.w * 3 * escala; c3.height = t.h * 3 * escala;
+  const ctx = c3.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) ctx.drawImage(fonte, x * t.w * escala, y * t.h * escala, t.w * escala, t.h * escala);
+  $("previa-info").textContent = `${t.rotulo || estado.ativa.slice(estado.ativa.lastIndexOf("/") + 1)}: tamanho real e repetida 3×3.`;
+}
+
+/* ---------- seleção, mão e varinha ---------- */
+const naMascara = (s, x, y) => !s.mascara || s.mascara[(y - s.y) * s.w + (x - s.x)] === 1;
+const dentroDaSelecao = (s, x, y) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h && naMascara(s, x, y);
+
+// Máscara do tamanho da textura -> seleção recortada ao menor retângulo que contém tudo.
+function selecaoDeMascara(caminho, cheia, largura, altura) {
+  let x0 = largura, y0 = altura, x1 = -1, y1 = -1;
+  for (let y = 0; y < altura; y++) for (let x = 0; x < largura; x++) {
+    if (!cheia[y * largura + x]) continue;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  if (x1 < 0) return null;
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, m = new Uint8Array(w * h);
+  let retangulo = true;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    m[y * w + x] = cheia[(y0 + y) * largura + x0 + x];
+    if (!m[y * w + x]) retangulo = false;
+  }
+  return { caminho, x: x0, y: y0, w, h, mascara: retangulo ? null : m };
+}
+
+function mascaraCheia(sel, t) {
+  const m = new Uint8Array(t.w * t.h);
+  for (let y = Math.max(0, sel.y); y < Math.min(t.h, sel.y + sel.h); y++)
+    for (let x = Math.max(0, sel.x); x < Math.min(t.w, sel.x + sel.w); x++) if (naMascara(sel, x, y)) m[y * t.w + x] = 1;
+  return m;
+}
+
+// Pixels da mesma cor que (x, y): só os encostados (contíguo) ou todos da textura.
+function mascaraPorCor(t, x, y, contiguo) {
+  const d = t.dados.data, alvo = lerPixel(t.dados, x, y), m = new Uint8Array(t.w * t.h);
+  const igual = i => d[i * 4] === alvo[0] && d[i * 4 + 1] === alvo[1] && d[i * 4 + 2] === alvo[2] && d[i * 4 + 3] === alvo[3];
+  if (!contiguo) { for (let i = 0; i < m.length; i++) if (igual(i)) m[i] = 1; return m; }
+  const pilha = [y * t.w + x];
+  while (pilha.length) {
+    const i = pilha.pop();
+    if (m[i] || !igual(i)) continue;
+    m[i] = 1;
+    const px = i % t.w, py = (i - px) / t.w;
+    if (px > 0) pilha.push(i - 1); if (px < t.w - 1) pilha.push(i + 1);
+    if (py > 0) pilha.push(i - t.w); if (py < t.h - 1) pilha.push(i + t.w);
+  }
+  return m;
+}
 
 // Desenha os pixels flutuantes por cima da base (pixel transparente da seleção não apaga o que está embaixo).
 function comporSelecao(sel) {
@@ -746,6 +905,7 @@ function levantarSelecao(duplicar) {
   registrarDesfazer([sel.caminho]);
   const f = new ImageData(sel.w, sel.h), base = copiarDados(t.dados);
   for (let y = 0; y < sel.h; y++) for (let x = 0; x < sel.w; x++) {
+    if (sel.mascara && !sel.mascara[y * sel.w + x]) continue;
     const i = ((sel.y + y) * t.w + sel.x + x) * 4;
     f.data.set(t.dados.data.subarray(i, i + 4), (y * sel.w + x) * 4);
     if (!duplicar) base.data.fill(0, i, i + 4);
@@ -758,11 +918,18 @@ function fixarSelecao() {
   const sel = estado.selecao;
   if (!sel || !sel.flutuante) return;
   const t = estado.texturas.get(sel.caminho);
-  sel.flutuante = null; sel.base = null;
+  sel.flutuante = null; sel.base = null; sel.colado = false;
   const x0 = Math.max(0, sel.x), y0 = Math.max(0, sel.y);
   const x1 = Math.min(t.w, sel.x + sel.w), y1 = Math.min(t.h, sel.y + sel.h);
   if (x1 <= x0 || y1 <= y0) estado.selecao = null;
-  else Object.assign(sel, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+  else {
+    let mascara = null;
+    if (sel.mascara) {
+      mascara = new Uint8Array((x1 - x0) * (y1 - y0));
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) mascara[(y - y0) * (x1 - x0) + x - x0] = sel.mascara[(y - sel.y) * sel.w + x - sel.x];
+    }
+    Object.assign(sel, { x: x0, y: y0, w: x1 - x0, h: y1 - y0, mascara });
+  }
   marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(t.caminho);
 }
 
@@ -780,8 +947,9 @@ function cancelarSelecao() {
   if (!sel) return;
   if (!sel.flutuante) { limparSelecao(); return; }
   const t = estado.texturas.get(sel.caminho);
-  t.dados = estado.desfazer.pop()[0].antes; // o registro feito ao levantar a seleção
-  Object.assign(sel, sel.origem, { flutuante: null, base: null });
+  t.dados = estado.desfazer.pop()[0].antes; // o registro feito ao levantar (ou colar) a seleção
+  if (sel.colado) estado.selecao = null;
+  else Object.assign(sel, sel.origem, { flutuante: null, base: null });
   marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(sel.caminho);
 }
 
@@ -800,10 +968,11 @@ function apagarSelecao() {
   const t = estado.texturas.get(sel.caminho);
   if (sel.flutuante) {
     t.dados = sel.base;
-    sel.flutuante = null; sel.base = null;
+    sel.flutuante = null; sel.base = null; sel.colado = false;
   } else {
     registrarDesfazer([sel.caminho]);
-    for (let y = sel.y; y < sel.y + sel.h; y++) t.dados.data.fill(0, (y * t.w + sel.x) * 4, (y * t.w + sel.x + sel.w) * 4);
+    for (let y = sel.y; y < sel.y + sel.h; y++) for (let x = sel.x; x < sel.x + sel.w; x++)
+      if (naMascara(sel, x, y)) t.dados.data.fill(0, (y * t.w + x) * 4, (y * t.w + x + 1) * 4);
   }
   marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(sel.caminho);
 }
@@ -813,24 +982,193 @@ function selecionarTudo() {
   if (!caminho) return;
   limparSelecao();
   const t = estado.texturas.get(caminho);
-  escolherFerramenta("mao");
-  estado.selecao = { caminho, x: 0, y: 0, w: t.w, h: t.h };
+  if (estado.ferramenta !== "mao" && estado.ferramenta !== "varinha") escolherFerramenta("mao");
+  estado.selecao = { caminho, x: 0, y: 0, w: t.w, h: t.h, mascara: null };
   marcarAtiva(caminho);
   desenhar(caminho);
 }
 
+function duplicarSelecao() {
+  const sel = estado.selecao;
+  if (!sel) { avisar("Selecione uma área primeiro, com a Mão ou a Varinha."); return; }
+  fixarSelecao();
+  if (!estado.selecao) return;
+  levantarSelecao(true);
+  // a cópia nasce 1 pixel para baixo e para a direita, para dar para ver que ela existe
+  estado.selecao.x += 1; estado.selecao.y += 1;
+  comporSelecao(estado.selecao);
+  marcarEditada(estado.texturas.get(estado.selecao.caminho)); salvarRascunho();
+  if (estado.ferramenta !== "mao" && estado.ferramenta !== "varinha") escolherFerramenta("mao");
+  avisar("Cópia criada. Arraste ou use as setas para posicionar e depois aperte Fixar (Enter).");
+}
+
+function copiar(recortar) {
+  const sel = estado.selecao;
+  let dados, mascara = null, x = 0, y = 0;
+  if (sel) {
+    const t = estado.texturas.get(sel.caminho);
+    if (sel.flutuante) dados = copiarDados(sel.flutuante);
+    else {
+      dados = new ImageData(sel.w, sel.h);
+      for (let yy = 0; yy < sel.h; yy++) for (let xx = 0; xx < sel.w; xx++) {
+        if (!naMascara(sel, sel.x + xx, sel.y + yy)) continue;
+        const i = ((sel.y + yy) * t.w + sel.x + xx) * 4;
+        dados.data.set(t.dados.data.subarray(i, i + 4), (yy * sel.w + xx) * 4);
+      }
+    }
+    mascara = sel.mascara ? sel.mascara.slice() : null; x = sel.x; y = sel.y;
+  } else {
+    if (recortar) { avisar("Selecione a área que quer recortar."); return; }
+    const caminho = estado.ativa || estado.abertas[0];
+    if (!caminho) { avisar("Abra uma textura para copiar."); return; }
+    dados = copiarDados(estado.texturas.get(caminho).dados);
+  }
+  estado.areaTransferencia = { dados, mascara, x, y };
+  if (recortar) apagarSelecao();
+  avisar(`${recortar ? "Recortado" : "Copiado"}: ${dados.width}×${dados.height} pixels. Clique no nome de outra textura (ou nesta) e use Colar.`);
+  renderPainelSelecao();
+}
+
+function colar(fonte) {
+  if (!fonte) { avisar("Nada para colar. Selecione uma área e use Copiar primeiro."); return; }
+  aplicarAjuste();
+  const caminho = estado.ativa || estado.abertas[0];
+  if (!caminho) { avisar("Abra uma textura para colar."); return; }
+  limparSelecao();
+  const t = estado.texturas.get(caminho);
+  const w = fonte.dados.width, h = fonte.dados.height;
+  let { x, y } = fonte;
+  if (x < 0 || y < 0 || x + w > t.w || y + h > t.h) { x = Math.max(0, Math.floor((t.w - w) / 2)); y = Math.max(0, Math.floor((t.h - h) / 2)); }
+  registrarDesfazer([caminho]);
+  estado.selecao = { caminho, x, y, w, h, mascara: fonte.mascara ? fonte.mascara.slice() : null,
+    flutuante: copiarDados(fonte.dados), base: copiarDados(t.dados), origem: { x, y }, colado: true };
+  if (estado.ferramenta !== "mao" && estado.ferramenta !== "varinha") escolherFerramenta("mao");
+  marcarAtiva(caminho);
+  comporSelecao(estado.selecao); marcarEditada(t); salvarRascunho();
+  avisar("Colado. Arraste para posicionar e aperte Fixar (Enter). Esc desiste.");
+}
+
+/* ---------- girar e espelhar ---------- */
+function transformarPixels(d, m, w, h, tipo) {
+  const nw = tipo === "girar" ? h : w, nh = tipo === "girar" ? w : h;
+  const nd = new ImageData(nw, nh), nm = m ? new Uint8Array(nw * nh) : null;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let nx, ny;
+    if (tipo === "h") { nx = w - 1 - x; ny = y; }
+    else if (tipo === "v") { nx = x; ny = h - 1 - y; }
+    else { nx = h - 1 - y; ny = x; } // 90° no sentido do relógio
+    nd.data.set(d.data.subarray((y * w + x) * 4, (y * w + x) * 4 + 4), (ny * nw + nx) * 4);
+    if (m) nm[ny * nw + nx] = m[y * w + x];
+  }
+  return { dados: nd, mascara: nm, w: nw, h: nh };
+}
+
+function transformar(tipo) {
+  aplicarAjuste();
+  const sel = estado.selecao;
+  if (sel) {
+    levantarSelecao(false);
+    const r = transformarPixels(sel.flutuante, sel.mascara, sel.w, sel.h, tipo);
+    sel.x += Math.floor((sel.w - r.w) / 2); sel.y += Math.floor((sel.h - r.h) / 2); // gira em volta do centro
+    Object.assign(sel, { flutuante: r.dados, mascara: r.mascara, w: r.w, h: r.h });
+    comporSelecao(sel);
+    marcarEditada(estado.texturas.get(sel.caminho)); salvarRascunho();
+    return;
+  }
+  const caminho = estado.ativa || estado.abertas[0];
+  if (!caminho) { avisar("Abra uma textura primeiro."); return; }
+  const t = estado.texturas.get(caminho);
+  if (tipo === "girar" && t.w !== t.h) { avisar("Só dá para girar texturas quadradas. Selecione uma parte dela para girar."); return; }
+  registrarDesfazer([caminho]);
+  t.dados = transformarPixels(t.dados, null, t.w, t.h, tipo).dados;
+  marcarEditada(t); salvarRascunho(); renderPaleta(); desenhar(caminho);
+}
+
+/* ---------- ajustar cores (matiz, saturação, brilho) com prévia ao vivo ---------- */
+let ajuste = null; // { caminho, antes, area } enquanto os controles estão fora do zero
+
+function rgbParaHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min, s = l > .5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+function hslParaRgb(h, s, l) {
+  if (!s) { const v = Math.round(l * 255); return [v, v, v]; }
+  const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const canal = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  return [canal(h + 1 / 3), canal(h), canal(h - 1 / 3)].map(v => Math.round(v * 255));
+}
+
+function zerarAjuste() {
+  for (const id of ["aj-matiz", "aj-sat", "aj-luz"]) { $(id).value = 0; $(id + "-out").textContent = "0"; }
+}
+
+function previaAjuste() {
+  const dh = +$("aj-matiz").value, ds = +$("aj-sat").value / 100, dl = +$("aj-luz").value / 100;
+  $("aj-matiz-out").textContent = dh; $("aj-sat-out").textContent = Math.round(ds * 100); $("aj-luz-out").textContent = Math.round(dl * 100);
+  if (!ajuste) {
+    fixarSelecao();
+    const s = estado.selecao;
+    const caminho = s ? s.caminho : (estado.ativa || estado.abertas[0]);
+    if (!caminho) { avisar("Abra uma textura para ajustar as cores."); zerarAjuste(); return; }
+    ajuste = { caminho, antes: copiarDados(estado.texturas.get(caminho).dados), area: s ? { ...s } : null };
+  }
+  const t = estado.texturas.get(ajuste.caminho), d = copiarDados(ajuste.antes), a = ajuste.area;
+  for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) {
+    if (a && !dentroDaSelecao(a, x, y)) continue;
+    const i = (y * t.w + x) * 4;
+    if (!d.data[i + 3]) continue;
+    let [h, sat, l] = rgbParaHsl(d.data[i], d.data[i + 1], d.data[i + 2]);
+    h = (h + dh / 360 + 1) % 1;
+    sat = Math.min(1, Math.max(0, sat + ds * (ds > 0 ? 1 - sat : sat)));
+    l = Math.min(1, Math.max(0, l + dl * (dl > 0 ? 1 - l : l)));
+    d.data.set(hslParaRgb(h, sat, l), i);
+  }
+  t.dados = d;
+  desenhar(ajuste.caminho);
+}
+
+function aplicarAjuste() {
+  if (!ajuste) return;
+  const { caminho, antes } = ajuste;
+  ajuste = null; zerarAjuste();
+  const t = estado.texturas.get(caminho);
+  if (!t.original) t.original = copiarDados(antes);
+  estado.desfazer.push([{ caminho, antes }]); estado.refazer = [];
+  marcarEditada(t); salvarRascunho(); renderPaleta(); renderPainelSelecao();
+}
+
+function descartarAjuste() {
+  if (!ajuste) { zerarAjuste(); return; }
+  const t = estado.texturas.get(ajuste.caminho);
+  t.dados = ajuste.antes; ajuste = null; zerarAjuste();
+  marcarEditada(t); desenhar(t.caminho); renderPainelSelecao();
+}
+
 function renderPainelSelecao() {
   const sel = estado.selecao;
-  $("painel-selecao").hidden = !sel && estado.ferramenta !== "mao";
+  const nomeAtiva = estado.ativa ? (estado.texturas.get(estado.ativa)?.rotulo || estado.ativa.slice(estado.ativa.lastIndexOf("/") + 1)) : null;
   $("sel-info").textContent = sel
-    ? `${sel.w}×${sel.h} pixels${sel.flutuante ? " · movendo (Enter fixa)" : ""}`
-    : "Arraste numa textura para selecionar.";
-  for (const id of ["sel-fixar", "sel-cancelar", "sel-apagar"]) $(id).disabled = !sel;
+    ? `${sel.w}×${sel.h} pixels${sel.mascara ? " (formato livre)" : ""}${sel.flutuante ? " · movendo, Fixar (Enter) termina" : ""}`
+    : "Nada selecionado. Use a Mão ou a Varinha.";
+  for (const id of ["sel-fixar", "sel-cancelar", "sel-apagar", "sel-duplicar", "sel-recortar"]) $(id).disabled = !sel;
+  $("sel-colar").disabled = !estado.areaTransferencia;
+  const at = estado.areaTransferencia;
+  $("area-info").textContent = at
+    ? `Copiado: ${at.dados.width}×${at.dados.height}. Clique no nome da textura de destino e em Colar.`
+    : "Copiar sem seleção copia a textura inteira.";
+  const alvo = sel ? "Na seleção" : nomeAtiva ? `Na textura ativa: ${nomeAtiva}` : "Abra uma textura";
+  $("transf-alvo").textContent = alvo;
+  $("ajuste-alvo").textContent = ajuste ? "Prévia: Aplicar confirma" : alvo;
 }
 
 function marcarAtiva(caminho) {
   estado.ativa = caminho;
   document.querySelectorAll(".celula").forEach(c => c.classList.toggle("ativa", c.dataset.caminho === caminho));
+  renderPrevia(); renderPainelSelecao();
 }
 
 /* ---------- pintura ---------- */
@@ -849,17 +1187,64 @@ function linha(x0, y0, x1, y1, f) {
   }
 }
 
-function balde(d, x, y, cor) {
-  const alvo = lerPixel(d, x, y);
-  if (mesmaCor(alvo, cor)) return;
-  const pilha = [[x, y]];
-  while (pilha.length) {
-    const [px, py] = pilha.pop();
-    if (px < 0 || py < 0 || px >= d.width || py >= d.height) continue;
-    if (!mesmaCor(lerPixel(d, px, py), alvo)) continue;
-    porPixel(d, px, py, cor);
-    pilha.push([px + 1, py], [px - 1, py], [px, py + 1], [px, py - 1]);
+// Pixels cobertos pelo pincel em (x, y), com o tamanho e o espelho escolhidos.
+function pontosDoPincel(t, x, y) {
+  const n = estado.opcoes.tamanho, o = Math.floor((n - 1) / 2), e = estado.opcoes.espelho;
+  const pts = [];
+  for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) {
+    const px = x - o + dx, py = y - o + dy;
+    pts.push([px, py]);
+    if (e === "h" || e === "hv") pts.push([t.w - 1 - px, py]);
+    if (e === "v" || e === "hv") pts.push([px, t.h - 1 - py]);
+    if (e === "hv") pts.push([t.w - 1 - px, t.h - 1 - py]);
   }
+  return pts.filter(([px, py]) => px >= 0 && py >= 0 && px < t.w && py < t.h);
+}
+
+const clarear = c => [c[0] + (255 - c[0]) * .18, c[1] + (255 - c[1]) * .18, c[2] + (255 - c[2]) * .18, c[3]].map(Math.round);
+const escurecer = c => [c[0] * .8, c[1] * .8, c[2] * .8, c[3]].map(Math.round);
+
+// tr.visitados evita que a Luz mude o mesmo pixel duas vezes no mesmo traço.
+function pintarPonto(t, x, y, tr) {
+  const f = estado.ferramenta;
+  for (const [px, py] of pontosDoPincel(t, x, y)) {
+    if (f === "xadrez" && (px + py) % 2) continue;
+    if (f === "luz") {
+      const i = py * t.w + px;
+      if (tr.visitados.has(i)) continue;
+      tr.visitados.add(i);
+      const c = lerPixel(t.dados, px, py);
+      if (c[3]) porPixel(t.dados, px, py, estado.opcoes.luzModo === "clarear" ? clarear(c) : escurecer(c));
+      continue;
+    }
+    porPixel(t.dados, px, py, f === "borracha" ? [0, 0, 0, 0] : estado.cor);
+  }
+}
+
+function pontosDaForma(f, x0, y0, x1, y1, travar) {
+  if (travar) {
+    let dx = x1 - x0, dy = y1 - y0;
+    if (f === "linha") {
+      if (Math.abs(dx) > 2 * Math.abs(dy)) dy = 0;
+      else if (Math.abs(dy) > 2 * Math.abs(dx)) dx = 0;
+      else { const m = Math.max(Math.abs(dx), Math.abs(dy)); dx = Math.sign(dx) * m; dy = Math.sign(dy) * m; }
+    } else { const m = Math.max(Math.abs(dx), Math.abs(dy)); dx = (Math.sign(dx) || 1) * m; dy = (Math.sign(dy) || 1) * m; }
+    x1 = x0 + dx; y1 = y0 + dy;
+  }
+  const pts = [];
+  if (f === "linha") { linha(x0, y0, x1, y1, (x, y) => pts.push([x, y])); return pts; }
+  const ax = Math.min(x0, x1), ay = Math.min(y0, y1), bx = Math.max(x0, x1), by = Math.max(y0, y1);
+  const cheio = estado.opcoes.preenchido;
+  if (f === "retangulo") {
+    for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++)
+      if (cheio || x === ax || x === bx || y === ay || y === by) pts.push([x, y]);
+    return pts;
+  }
+  const cx = (ax + bx + 1) / 2, cy = (ay + by + 1) / 2, rx = (bx - ax + 1) / 2, ry = (by - ay + 1) / 2;
+  const dentro = (x, y) => x >= ax && x <= bx && y >= ay && y <= by && ((x + .5 - cx) / rx) ** 2 + ((y + .5 - cy) / ry) ** 2 <= 1;
+  for (let y = ay; y <= by; y++) for (let x = ax; x <= bx; x++)
+    if (dentro(x, y) && (cheio || !dentro(x - 1, y) || !dentro(x + 1, y) || !dentro(x, y - 1) || !dentro(x, y + 1))) pts.push([x, y]);
+  return pts;
 }
 
 function registrarDesfazer(caminhos) {
@@ -873,6 +1258,7 @@ function registrarDesfazer(caminhos) {
 }
 
 function aplicarHistorico(de, para) {
+  aplicarAjuste();
   limparSelecao();
   const passo = de.pop(); if (!passo) return;
   para.push(passo.map(({ caminho }) => ({ caminho, antes: copiarDados(estado.texturas.get(caminho).dados) })));
@@ -891,46 +1277,60 @@ function usarCor(c) {
 }
 
 function ligarCanvas(cv, caminho) {
-  let ultimo = null;
-  let arrasto = null; // ferramenta mão: { modo: "selecionar" | "mover", ... }
+  let ultimo = null, tracado = null;
+  let arrasto = null; // { modo: "selecionar" | "mover" | "forma", ... }
   const posicaoLivre = ev => {
     const r = cv.getBoundingClientRect();
     const t = estado.texturas.get(caminho);
     return [Math.floor((ev.clientX - r.left) / r.width * t.w), Math.floor((ev.clientY - r.top) / r.height * t.h)];
   };
   const posicao = ev => {
-    const r = cv.getBoundingClientRect();
     const t = estado.texturas.get(caminho);
-    const x = Math.floor((ev.clientX - r.left) / r.width * t.w);
-    const y = Math.floor((ev.clientY - r.top) / r.height * t.h);
+    const [x, y] = posicaoLivre(ev);
     return [Math.max(0, Math.min(t.w - 1, x)), Math.max(0, Math.min(t.h - 1, y))];
   };
+  const terminouEdicao = t => { marcarEditada(t); salvarRascunho(); renderPaleta(); };
+
   cv.addEventListener("pointerdown", ev => {
     if (ev.button !== 0) return;
     ev.preventDefault();
+    aplicarAjuste();
     marcarAtiva(caminho);
     const t = estado.texturas.get(caminho);
     const [x, y] = posicao(ev);
     const f = estado.ferramenta;
-    if (f === "mao") {
+
+    if (f === "mao" || f === "varinha") {
       if (estado.selecao && estado.selecao.caminho !== caminho) limparSelecao();
       const [lx, ly] = posicaoLivre(ev);
       const sel = estado.selecao;
-      if (sel && dentroDaSelecao(sel, lx, ly)) {
+      if (sel && dentroDaSelecao(sel, lx, ly) && !(f === "varinha" && ev.shiftKey)) {
         levantarSelecao(ev.altKey);
         arrasto = { modo: "mover", x0: lx, y0: ly, sx: sel.x, sy: sel.y };
-      } else {
-        limparSelecao();
-        estado.selecao = { caminho, x, y, w: 1, h: 1 };
-        arrasto = { modo: "selecionar", x0: x, y0: y, moveu: false };
-        desenhar(caminho);
+        cv.setPointerCapture(ev.pointerId);
+        return;
       }
+      if (f === "varinha") {
+        fixarSelecao();
+        const cheia = mascaraPorCor(t, x, y, estado.opcoes.contiguo);
+        const atual = estado.selecao;
+        if (ev.shiftKey && atual && atual.caminho === caminho) {
+          const outra = mascaraCheia(atual, t);
+          for (let i = 0; i < cheia.length; i++) cheia[i] |= outra[i];
+        }
+        estado.selecao = selecaoDeMascara(caminho, cheia, t.w, t.h);
+        desenhar(caminho);
+        return;
+      }
+      limparSelecao();
+      estado.selecao = { caminho, x, y, w: 1, h: 1, mascara: null };
+      arrasto = { modo: "selecionar", x0: x, y0: y, moveu: false };
+      desenhar(caminho);
       cv.setPointerCapture(ev.pointerId);
       return;
     }
-    if (f === "conta") {
-      usarCor(lerPixel(t.dados, x, y)); escolherFerramenta("lapis"); return;
-    }
+    if (ev.altKey && PINTURA.has(f)) { usarCor(lerPixel(t.dados, x, y)); return; }
+    if (f === "conta") { usarCor(lerPixel(t.dados, x, y)); escolherFerramenta(estado.ferramentaAnterior); return; }
     if (f === "trocar") {
       const alvo = lerPixel(t.dados, x, y);
       if (mesmaCor(alvo, estado.cor)) return;
@@ -948,23 +1348,39 @@ function ligarCanvas(cv, caminho) {
       avisar(`Troquei ${total} pixels em ${estado.abertas.length === 1 ? "1 textura" : estado.abertas.length + " texturas"}.`);
       return;
     }
-    registrarDesfazer([caminho]);
     if (f === "balde") {
-      balde(t.dados, x, y, estado.cor);
-      usarCor(estado.cor); marcarEditada(t); desenhar(caminho); salvarRascunho(); renderPaleta();
+      if (mesmaCor(lerPixel(t.dados, x, y), estado.cor)) return;
+      registrarDesfazer([caminho]);
+      const m = mascaraPorCor(t, x, y, estado.opcoes.contiguo);
+      for (let i = 0; i < m.length; i++) if (m[i]) t.dados.data.set(estado.cor, i * 4);
+      usarCor(estado.cor); desenhar(caminho); terminouEdicao(t);
       return;
     }
-    const cor = f === "borracha" ? [0, 0, 0, 0] : estado.cor;
-    porPixel(t.dados, x, y, cor); desenhar(caminho);
+    registrarDesfazer([caminho]);
+    if (FORMAS.has(f)) {
+      arrasto = { modo: "forma", x0: x, y0: y, antes: copiarDados(t.dados) };
+      pintarPonto(t, x, y, { visitados: new Set() });
+      desenhar(caminho);
+      cv.setPointerCapture(ev.pointerId);
+      return;
+    }
+    // pincéis: lápis, borracha, xadrez, luz
+    tracado = { visitados: new Set() };
+    const u = estado.ultimoPonto;
+    if (ev.shiftKey && u && u.caminho === caminho) linha(u.x, u.y, x, y, (px, py) => pintarPonto(t, px, py, tracado));
+    else pintarPonto(t, x, y, tracado);
+    desenhar(caminho);
     ultimo = [x, y];
     cv.setPointerCapture(ev.pointerId);
   });
+
   cv.addEventListener("pointermove", ev => {
     const t = estado.texturas.get(caminho);
     const [x, y] = posicao(ev);
     const c = lerPixel(t.dados, x, y);
-    $("status").textContent = `x ${x}  y ${y}  ${c[3] ? corParaHex(c) : "transparente"}`;
-    if (estado.ferramenta === "mao") {
+    let status = `x ${x}  y ${y}  ${c[3] ? corParaHex(c) : "transparente"}`;
+    const f = estado.ferramenta;
+    if (f === "mao" || f === "varinha") {
       const [lx, ly] = posicaoLivre(ev);
       const sel = estado.selecao;
       cv.style.cursor = arrasto?.modo === "mover" || (sel && sel.caminho === caminho && dentroDaSelecao(sel, lx, ly)) ? "move" : "crosshair";
@@ -976,27 +1392,38 @@ function ligarCanvas(cv, caminho) {
         Object.assign(sel, { x: Math.min(x, arrasto.x0), y: Math.min(y, arrasto.y0), w: Math.abs(x - arrasto.x0) + 1, h: Math.abs(y - arrasto.y0) + 1 });
         desenhar(caminho);
       }
+      $("status").textContent = status;
       return;
     }
     cv.style.cursor = "crosshair";
+    if (arrasto?.modo === "forma") {
+      t.dados = copiarDados(arrasto.antes);
+      const tr = { visitados: new Set() };
+      for (const [px, py] of pontosDaForma(f, arrasto.x0, arrasto.y0, x, y, ev.shiftKey)) pintarPonto(t, px, py, tr);
+      desenhar(caminho);
+      status += `  ·  ${Math.abs(x - arrasto.x0) + 1}×${Math.abs(y - arrasto.y0) + 1}`;
+    }
+    $("status").textContent = status;
     if (!ultimo) return;
-    const cor = estado.ferramenta === "borracha" ? [0, 0, 0, 0] : estado.cor;
-    linha(ultimo[0], ultimo[1], x, y, (px, py) => porPixel(t.dados, px, py, cor));
+    linha(ultimo[0], ultimo[1], x, y, (px, py) => pintarPonto(t, px, py, tracado));
     ultimo = [x, y];
     desenhar(caminho);
   });
+
   const fim = () => {
+    const t = estado.texturas.get(caminho);
     if (arrasto) {
       const a = arrasto; arrasto = null;
       if (a.modo === "selecionar" && !a.moveu) limparSelecao(); // um clique sem arrastar tira a seleção
-      if (a.modo === "mover") { marcarEditada(estado.texturas.get(caminho)); salvarRascunho(); }
+      if (a.modo === "mover") { marcarEditada(t); salvarRascunho(); }
+      if (a.modo === "forma") { usarCor(estado.cor); terminouEdicao(t); }
       return;
     }
     if (!ultimo) return;
-    ultimo = null;
-    const t = estado.texturas.get(caminho);
-    if (estado.ferramenta === "lapis") usarCor(estado.cor);
-    marcarEditada(t); salvarRascunho(); renderPaleta();
+    estado.ultimoPonto = { caminho, x: ultimo[0], y: ultimo[1] };
+    ultimo = null; tracado = null;
+    if (estado.ferramenta === "lapis" || estado.ferramenta === "xadrez") usarCor(estado.cor);
+    terminouEdicao(t);
   };
   cv.addEventListener("pointerup", fim);
   cv.addEventListener("pointercancel", fim);
@@ -1009,10 +1436,37 @@ function renderFerramentas() {
     `<button type="button" class="ferr" data-ferr="${f.id}" aria-pressed="${estado.ferramenta === f.id}" title="${f.nome} (${f.tecla})">
       <svg viewBox="0 0 24 24" aria-hidden="true">${f.svg}</svg>${f.nome}<kbd>${f.tecla}</kbd></button>`).join("");
   $("dica-ferr").textContent = FERRAMENTAS.find(f => f.id === estado.ferramenta).dica;
+  renderOpcoes();
 }
+
+function segmentado(op, valores) {
+  return `<div class="seg" data-op="${op}">${valores.map(([v, rotulo]) =>
+    `<button type="button" data-valor="${v}" aria-pressed="${estado.opcoes[op] === v}">${rotulo}</button>`).join("")}</div>`;
+}
+
+function renderOpcoes() {
+  const lista = OPCOES_DA_FERRAMENTA[estado.ferramenta] || [];
+  const o = estado.opcoes, html = [];
+  if (lista.includes("luzModo")) html.push(segmentado("luzModo", [["clarear", "Clarear"], ["escurecer", "Escurecer"]]));
+  if (lista.includes("preenchido")) html.push(`<label class="check"><input type="checkbox" id="op-preenchido"${o.preenchido ? " checked" : ""}> Preenchido</label>`);
+  if (lista.includes("contiguo")) html.push(`<label class="check"><input type="checkbox" id="op-contiguo"${o.contiguo ? " checked" : ""}> Só a área encostada</label>`);
+  if (lista.includes("tamanho")) html.push(`<label class="linha" for="op-tamanho">Pincel <input type="range" id="op-tamanho" min="1" max="8" value="${o.tamanho}"><output id="op-tamanho-out">${o.tamanho}px</output></label>`);
+  if (lista.includes("espelho")) html.push(`<p class="mini">Espelho (simetria)</p>` +
+    segmentado("espelho", [["nenhum", "Não"], ["h", "↔"], ["v", "↕"], ["hv", "Os dois"]]));
+  $("opcoes").innerHTML = html.join("");
+}
+
 function escolherFerramenta(id) {
-  if (id !== "mao") limparSelecao();
+  aplicarAjuste();
+  if (id !== "mao" && id !== "varinha") limparSelecao();
+  if (id === "conta" && estado.ferramenta !== "conta") estado.ferramentaAnterior = estado.ferramenta;
   estado.ferramenta = id; renderFerramentas(); renderPainelSelecao();
+  estado.abertas.forEach(desenhar); // mostra ou esconde o eixo do espelho
+}
+
+function mudarTamanho(delta) {
+  estado.opcoes.tamanho = Math.max(1, Math.min(8, estado.opcoes.tamanho + delta));
+  renderOpcoes();
 }
 
 function renderCor() {
@@ -1092,6 +1546,7 @@ async function montarZip(soEditadas) {
 }
 
 async function baixarPack(soEditadas) {
+  aplicarAjuste();
   fixarSelecao();
   const editadas = [...estado.texturas.values()].filter(t => t.editada).length;
   if (soEditadas && !editadas) { avisar("Você ainda não editou nenhuma textura."); return; }
@@ -1103,6 +1558,7 @@ async function baixarPack(soEditadas) {
 }
 
 async function baixarPng() {
+  aplicarAjuste();
   fixarSelecao();
   let caminho = estado.ativa || estado.abertas[0];
   if (!caminho) { avisar("Clique numa textura da folha para escolher qual baixar."); return; }
@@ -1146,6 +1602,8 @@ $("chips").addEventListener("click", ev => {
   renderLista(); renderFolha();
 });
 $("folha").addEventListener("click", ev => {
+  const cab = ev.target.closest(".celula header");
+  if (cab && !ev.target.closest(".fechar")) { marcarAtiva(cab.closest(".celula").dataset.caminho); return; } // escolhe onde colar sem pintar
   const b = ev.target.closest(".fechar"); if (!b) return;
   const c = b.closest(".celula").dataset.caminho;
   estado.abertas = estado.abertas.filter(x => x !== c);
@@ -1177,6 +1635,32 @@ $("sel-fixar").addEventListener("click", limparSelecao);
 $("sel-cancelar").addEventListener("click", cancelarSelecao);
 $("sel-apagar").addEventListener("click", apagarSelecao);
 $("sel-tudo").addEventListener("click", selecionarTudo);
+$("sel-duplicar").addEventListener("click", duplicarSelecao);
+$("sel-copiar").addEventListener("click", () => copiar(false));
+$("sel-recortar").addEventListener("click", () => copiar(true));
+$("sel-colar").addEventListener("click", () => colar(estado.areaTransferencia));
+$("tr-h").addEventListener("click", () => transformar("h"));
+$("tr-v").addEventListener("click", () => transformar("v"));
+$("tr-girar").addEventListener("click", () => transformar("girar"));
+for (const id of ["aj-matiz", "aj-sat", "aj-luz"]) {
+  $(id).addEventListener("input", previaAjuste);
+  $(id).addEventListener("change", ev => ev.target.blur());
+}
+$("aj-aplicar").addEventListener("click", aplicarAjuste);
+$("aj-descartar").addEventListener("click", descartarAjuste);
+$("opcoes").addEventListener("click", ev => {
+  const b = ev.target.closest(".seg button"); if (!b) return;
+  estado.opcoes[b.parentElement.dataset.op] = b.dataset.valor;
+  renderOpcoes(); estado.abertas.forEach(desenhar);
+});
+$("opcoes").addEventListener("input", ev => {
+  if (ev.target.id === "op-tamanho") { estado.opcoes.tamanho = +ev.target.value; $("op-tamanho-out").textContent = ev.target.value + "px"; }
+});
+$("opcoes").addEventListener("change", ev => {
+  if (ev.target.id === "op-preenchido") estado.opcoes.preenchido = ev.target.checked;
+  if (ev.target.id === "op-contiguo") estado.opcoes.contiguo = ev.target.checked;
+  ev.target.blur();
+});
 $("desfazer").addEventListener("click", () => aplicarHistorico(estado.desfazer, estado.refazer));
 $("refazer").addEventListener("click", () => aplicarHistorico(estado.refazer, estado.desfazer));
 $("abrir-zip").addEventListener("change", ev => { const f = ev.target.files[0]; if (f) abrirZip(f); ev.target.value = ""; });
@@ -1198,22 +1682,56 @@ document.addEventListener("drop", ev => {
   if (f) abrirZip(f); else avisar("Solte o arquivo .zip do pack aqui para abrir.");
 });
 
+// Ctrl+V: cola uma imagem copiada de outro programa, ou o que foi copiado aqui dentro.
+let colouPeloEvento = false;
+document.addEventListener("paste", async ev => {
+  if (ev.target.matches && ev.target.matches("input, textarea")) return;
+  colouPeloEvento = true;
+  const item = [...(ev.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+  if (item) {
+    ev.preventDefault();
+    try {
+      const bmp = await createImageBitmap(item.getAsFile(), { premultiplyAlpha: "none", colorSpaceConversion: "none" });
+      const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+      const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+      colar({ dados: ctx.getImageData(0, 0, bmp.width, bmp.height), mascara: null, x: 0, y: 0 });
+    } catch (_) { avisar("Não consegui ler a imagem colada."); }
+    return;
+  }
+  if (estado.areaTransferencia) { ev.preventDefault(); colar(estado.areaTransferencia); }
+});
+
 document.addEventListener("keydown", ev => {
   if (ev.target.matches("input, textarea")) return;
-  const k = ev.key.toLowerCase();
-  if ((ev.ctrlKey || ev.metaKey) && k === "z") { ev.preventDefault(); aplicarHistorico(ev.shiftKey ? estado.refazer : estado.desfazer, ev.shiftKey ? estado.desfazer : estado.refazer); return; }
-  if ((ev.ctrlKey || ev.metaKey) && k === "y") { ev.preventDefault(); aplicarHistorico(estado.refazer, estado.desfazer); return; }
-  if ((ev.ctrlKey || ev.metaKey) && k === "a") { ev.preventDefault(); selecionarTudo(); return; }
-  if (estado.selecao && !ev.ctrlKey && !ev.metaKey) {
+  const k = ev.key.toLowerCase(), ctrl = ev.ctrlKey || ev.metaKey;
+  if (ctrl && k === "z") { ev.preventDefault(); aplicarHistorico(ev.shiftKey ? estado.refazer : estado.desfazer, ev.shiftKey ? estado.desfazer : estado.refazer); return; }
+  if (ctrl && k === "y") { ev.preventDefault(); aplicarHistorico(estado.refazer, estado.desfazer); return; }
+  if (ctrl && k === "a") { ev.preventDefault(); selecionarTudo(); return; }
+  if (ctrl && k === "c") { ev.preventDefault(); copiar(false); return; }
+  if (ctrl && k === "x") { ev.preventDefault(); copiar(true); return; }
+  if (ctrl && k === "d") { ev.preventDefault(); duplicarSelecao(); return; }
+  if (ctrl && k === "v") {
+    // o evento "paste" cuida da colagem; se ele não vier (alguns navegadores), cola o que foi copiado aqui
+    colouPeloEvento = false;
+    setTimeout(() => { if (!colouPeloEvento && estado.areaTransferencia) colar(estado.areaTransferencia); }, 80);
+    return;
+  }
+  if (estado.selecao && !ctrl) {
     const setas = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] };
-    if (k === "escape") { cancelarSelecao(); return; }
-    if (k === "enter") { limparSelecao(); return; }
+    // preventDefault: com um botão em foco (ex.: Colar), Enter também "clicaria" o botão de novo
+    if (k === "escape") { ev.preventDefault(); cancelarSelecao(); return; }
+    if (k === "enter") { ev.preventDefault(); limparSelecao(); return; }
     if (k === "delete" || k === "backspace") { ev.preventDefault(); apagarSelecao(); return; }
     if (setas[k]) { ev.preventDefault(); moverSelecao(...setas[k]); return; }
   }
-  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (ctrl || ev.altKey) return;
+  if (ev.shiftKey && k === "h") { transformar("h"); return; }
+  if (ev.shiftKey && k === "v") { transformar("v"); return; }
+  if (ev.shiftKey && k === "r") { transformar("girar"); return; }
+  if (k === "[") { mudarTamanho(-1); return; }
+  if (k === "]") { mudarTamanho(+1); return; }
   const f = FERRAMENTAS.find(x => x.tecla.toLowerCase() === k);
-  if (f) { escolherFerramenta(f.id); return; }
+  if (f && !ev.shiftKey) { escolherFerramenta(f.id); return; }
   if (k === "+" || k === "=") mudarZoom(+1);
   if (k === "-") mudarZoom(-1);
   if (k === "h") { $("grade").checked = !$("grade").checked; $("grade").dispatchEvent(new Event("change")); }
@@ -1239,10 +1757,11 @@ function desenharLogo() {
   renderFerramentas(); renderCor(); renderRecentes();
   await montarExemplo();
   await recuperarRascunho();
-  estado.abertas = [...estado.texturas.keys()].filter(CONJUNTOS[0].teste).sort().slice(0, 8);
+  estado.abertas = [...estado.texturas.keys()].filter(CONJUNTOS.find(c => c.nome === "Lã").teste).sort().slice(0, 8);
   estado.abertas.push("items/diamond_sword.png");
   estado.ativa = "items/diamond_sword.png";
   renderTudo();
+  renderPainelSelecao();
 })();
 </script>
 
