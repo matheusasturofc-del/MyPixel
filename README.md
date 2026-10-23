@@ -90,6 +90,12 @@ o fundo, então desenhe em branco e mude o formato.
 
 ## Outros atalhos
 
-**Ctrl+Z** desfaz, **Ctrl+Y** (ou Ctrl+Shift+Z) refaz, **+ / -** ou
-**Ctrl + rodinha do mouse** mudam o zoom (até 64x), **H** liga/desliga a grade.
-Texturas grandes, como o `icons.png` (256x256), vão até 16x.
+**Ctrl+Z** desfaz, **Ctrl+Y** (ou Ctrl+Shift+Z) refaz, **H** liga/desliga a grade.
+
+Zoom e navegação na folha:
+
+- **Rodinha do mouse**: zoom (até 64x) no ponto onde está o mouse. **+ / -** e
+  o controle de zoom também funcionam. Texturas grandes, como o `icons.png`
+  (256x256), vão até 16x.
+- **Shift + rodinha**: rola a folha.
+- **Espaço + arrastar**, ou arrastar com o **botão do meio**: move a folha.

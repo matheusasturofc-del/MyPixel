@@ -131,6 +131,8 @@ button { cursor: pointer; }
 .centro-bar .status { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
 .link { border: 0; background: none; color: var(--accent); padding: 0; font-weight: 600; }
 #folha { flex: 1; min-height: 0; overflow: auto; padding: 18px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 18px; }
+#folha.mover, #folha.mover canvas { cursor: grab !important; }
+#folha.arrastando, #folha.arrastando canvas { cursor: grabbing !important; }
 .celula { display: flex; flex-direction: column; gap: 6px; }
 .celula header { display: flex; align-items: baseline; gap: 8px; font-size: 12px; max-width: 100%; }
 .celula header b { font-weight: 600; overflow-wrap: anywhere; }
@@ -344,7 +346,7 @@ button { cursor: pointer; }
       <p class="label">Visualização</p>
       <label class="linha" for="zoom">Zoom <input type="range" id="zoom" min="2" max="64" value="16"><output id="zoom-out">16x</output></label>
       <label class="check"><input type="checkbox" id="grade" checked> Mostrar grade de pixels</label>
-      <p class="dica-ferr">Ctrl + rodinha do mouse em cima da folha também muda o zoom.</p>
+      <p class="dica-ferr">Rodinha do mouse em cima da folha: zoom no ponto do mouse. Shift + rodinha rola a folha. Espaço + arrastar (ou arrastar com o botão do meio) move a folha.</p>
     </div>
   </aside>
 </div>
@@ -818,9 +820,15 @@ function desenharAgora(caminho) {
 function mudarZoom(direcao) {
   const passo = estado.zoom >= 32 ? 8 : estado.zoom >= 16 ? 4 : estado.zoom >= 8 ? 2 : 1;
   const z = Math.max(2, Math.min(ZOOM_MAX, estado.zoom + direcao * passo));
-  if (z === estado.zoom) return;
-  $("zoom").value = z;
-  $("zoom").dispatchEvent(new Event("input"));
+  if (z === estado.zoom) return null;
+  return definirZoom(z);
+}
+
+function definirZoom(z) {
+  estado.zoom = z;
+  $("zoom").value = z; $("zoom-out").textContent = z + "x";
+  try { localStorage.setItem("mypixel:zoom", z); } catch (_) {}
+  return renderFolha();
 }
 
 function renderPrevia() {
@@ -1292,7 +1300,7 @@ function ligarCanvas(cv, caminho) {
   const terminouEdicao = t => { marcarEditada(t); salvarRascunho(); renderPaleta(); };
 
   cv.addEventListener("pointerdown", ev => {
-    if (ev.button !== 0) return;
+    if (ev.button !== 0 || espacoApertado) return; // espaço + arrastar move a folha, não pinta
     ev.preventDefault();
     aplicarAjuste();
     marcarAtiva(caminho);
@@ -1624,11 +1632,7 @@ $("seletor").addEventListener("input", ev => { const c = hexParaCor(ev.target.va
 $("hex").addEventListener("input", ev => { const c = hexParaCor(ev.target.value); if (c) { estado.cor = c; renderCor(); } });
 $("hex").addEventListener("blur", renderCor);
 $("alfa").addEventListener("input", ev => { estado.cor[3] = +ev.target.value; renderCor(); });
-$("zoom").addEventListener("input", ev => {
-  estado.zoom = +ev.target.value; $("zoom-out").textContent = estado.zoom + "x";
-  try { localStorage.setItem("mypixel:zoom", estado.zoom); } catch (_) {}
-  renderFolha();
-});
+$("zoom").addEventListener("input", ev => definirZoom(+ev.target.value));
 $("zoom").addEventListener("change", ev => ev.target.blur()); // devolve o teclado para os atalhos (+, -, ferramentas)
 $("grade").addEventListener("change", ev => { estado.grade = ev.target.checked; estado.abertas.forEach(desenhar); });
 $("sel-fixar").addEventListener("click", limparSelecao);
@@ -1669,11 +1673,68 @@ $("baixar-pack").addEventListener("click", () => baixarPack(false));
 $("baixar-editadas").addEventListener("click", () => baixarPack(true));
 $("baixar-png").addEventListener("click", baixarPng);
 
-$("folha").addEventListener("wheel", ev => {
-  if (!ev.ctrlKey && !ev.metaKey) return;
+// Rodinha = zoom no ponto do mouse; Shift + rodinha = rolar a folha.
+let rodaAcumulada = 0, zoomEmAndamento = false;
+$("folha").addEventListener("wheel", async ev => {
   ev.preventDefault();
-  mudarZoom(ev.deltaY < 0 ? 1 : -1);
+  const folha = $("folha"), px = ev.deltaMode === 1 ? 33 : ev.deltaMode === 2 ? folha.clientHeight : 1;
+  if (ev.shiftKey) {
+    // alguns navegadores já transformam Shift + rodinha em rolagem para o lado (deltaX)
+    if (ev.deltaY) folha.scrollTop += ev.deltaY * px; else folha.scrollLeft += ev.deltaX * px;
+    return;
+  }
+  rodaAcumulada += ev.deltaY * px; // touchpads mandam vários passos pequenos: um zoom a cada ~50px
+  if (Math.abs(rodaAcumulada) < 50 || zoomEmAndamento) return;
+  const direcao = rodaAcumulada < 0 ? 1 : -1;
+  rodaAcumulada = 0;
+  const cv = ev.target.closest && ev.target.closest(".celula canvas");
+  let ancora = null;
+  if (cv) {
+    const r = cv.getBoundingClientRect();
+    ancora = { caminho: cv.closest(".celula").dataset.caminho, fx: (ev.clientX - r.left) / r.width, fy: (ev.clientY - r.top) / r.height };
+  }
+  const pronto = mudarZoom(direcao);
+  if (!pronto) return;
+  zoomEmAndamento = true;
+  try {
+    await pronto;
+    // mantém o mesmo pixel da textura embaixo do mouse
+    const reg = ancora && canvases.get(ancora.caminho);
+    if (reg) {
+      const r = reg.canvas.getBoundingClientRect();
+      folha.scrollLeft += r.left + ancora.fx * r.width - ev.clientX;
+      folha.scrollTop += r.top + ancora.fy * r.height - ev.clientY;
+    }
+  } finally { zoomEmAndamento = false; }
 }, { passive: false });
+
+// Espaço + arrastar, ou arrastar com o botão do meio, move a folha.
+let espacoApertado = false, arrastoFolha = null;
+document.addEventListener("keydown", ev => {
+  if (ev.code !== "Space" || ev.target.matches("input, textarea")) return;
+  ev.preventDefault();
+  if (!espacoApertado) { espacoApertado = true; $("folha").classList.add("mover"); }
+});
+document.addEventListener("keyup", ev => {
+  if (ev.code === "Space") { espacoApertado = false; $("folha").classList.remove("mover"); }
+});
+$("folha").addEventListener("pointerdown", ev => {
+  if (!(ev.button === 1 || (ev.button === 0 && espacoApertado))) return;
+  ev.preventDefault();
+  const folha = $("folha");
+  arrastoFolha = { x: ev.clientX, y: ev.clientY, esquerda: folha.scrollLeft, topo: folha.scrollTop };
+  folha.setPointerCapture(ev.pointerId);
+  folha.classList.add("arrastando");
+});
+$("folha").addEventListener("pointermove", ev => {
+  if (!arrastoFolha) return;
+  const folha = $("folha");
+  folha.scrollLeft = arrastoFolha.esquerda - (ev.clientX - arrastoFolha.x);
+  folha.scrollTop = arrastoFolha.topo - (ev.clientY - arrastoFolha.y);
+});
+for (const tipo of ["pointerup", "pointercancel"]) {
+  $("folha").addEventListener(tipo, () => { arrastoFolha = null; $("folha").classList.remove("arrastando"); });
+}
 
 document.addEventListener("dragover", ev => ev.preventDefault());
 document.addEventListener("drop", ev => {
