@@ -80,6 +80,15 @@ depois em **Colar**. Pixels arrastados para fora da textura são cortados.
 Mostra a textura ativa no tamanho real e repetida 3×3, para ver como ela fica
 num bloco no jogo.
 
+## Céu (skybox)
+
+O conjunto **Céu** abre a skybox do pack (`assets/minecraft/mcpatcher/sky/world0/sky1.png`,
+o céu personalizado do OptiFine, que funciona no Lunar e no Badlion) junto com o
+sol, a lua, as nuvens e o céu do End. Na skybox, o editor mostra por cima o nome
+de cada um dos 6 lados (baixo, cima, sul / oeste, norte, leste) e uma linha
+tracejada no horizonte. Imagens das pastas `mcpatcher/` e `optifine/` do pack
+aparecem na lista e são salvas no lugar certo.
+
 ## Mira
 
 O conjunto **Mira** abre só o canto do `gui/icons.png` onde fica a mira

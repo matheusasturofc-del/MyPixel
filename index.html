@@ -357,6 +357,10 @@ button { cursor: pointer; }
 "use strict";
 
 const PREFIXO = "assets/minecraft/textures/";
+// Imagens do OptiFine (céu, etc.) ficam fora de textures/: mcpatcher/ no 1.8, optifine/ a partir do 1.13.
+const PREFIXO_OPTIFINE = /^assets\/minecraft\/(mcpatcher|optifine)\//;
+const LADOS_DO_CEU = [["baixo", "cima", "sul"], ["oeste", "norte", "leste"]];
+const ehCeu = n => /^(mcpatcher|optifine)\/sky\/world\d+\/[^/]+\.png$/.test(n);
 const MCMETA_PADRAO = JSON.stringify({ pack: { pack_format: 1, description: "§bMajestic Diamond §7- PvP 16x" } }, null, 2);
 const ZOOM_MAX = 64;
 const LIMITE_CANVAS = 4096; // texturas grandes (gui/icons.png 256x256) vão até 16x para o canvas não ficar pesado demais
@@ -376,6 +380,8 @@ const CONJUNTOS = [
   { nome: "Vidro", teste: n => /^blocks\/glass(_[a-z_]+)?\.png$/.test(n) && !n.includes("pane") },
   { nome: "Argila", teste: n => n.startsWith("blocks/hardened_clay") },
   { nome: "Minérios", teste: n => /^blocks\/[a-z]+_ore\.png$/.test(n) },
+  { nome: "Céu", teste: n => ehCeu(n) || /^environment\/(sun|moon_phases|clouds|end_sky)\.png$/.test(n),
+    aviso: "O céu desenhado (skybox) só aparece com OptiFine: Lunar, Badlion ou OptiFine. Os 6 lados ficam em 3x2: baixo, cima, sul / oeste, norte, leste." },
 ];
 
 const traco = d => `<path d="${d}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
@@ -611,6 +617,10 @@ async function abrirEntradas(nomePack, entradas) {
       const caminho = noPack.slice(PREFIXO.length);
       estado.texturas.set(caminho, novaTextura(caminho, noPack, blob));
       n++;
+    } else if (PREFIXO_OPTIFINE.test(noPack) && noPack.toLowerCase().endsWith(".png")) {
+      const caminho = noPack.slice("assets/minecraft/".length); // ex.: mcpatcher/sky/world0/sky1.png
+      estado.texturas.set(caminho, novaTextura(caminho, noPack, blob));
+      n++;
     } else {
       estado.arquivosExtras.set(noPack, blob);
     }
@@ -796,6 +806,23 @@ function desenharAgora(caminho) {
     if (e === "h" || e === "hv") { ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); }
     if (e === "v" || e === "hv") { ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); }
     ctx.stroke(); ctx.restore();
+  }
+  if (ehCeu(caminho) && t.w * 2 === t.h * 3) {
+    // divide os 6 lados do céu e marca o horizonte nos lados de pé
+    const lado = t.w / 3 * zoom;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 1; i < 3; i++) { ctx.moveTo(i * lado, 0); ctx.lineTo(i * lado, canvas.height); }
+    ctx.moveTo(0, lado); ctx.lineTo(canvas.width, lado);
+    ctx.stroke();
+    ctx.setLineDash([6, 6]); ctx.beginPath();
+    ctx.moveTo(2 * lado, lado / 2); ctx.lineTo(3 * lado, lado / 2);
+    ctx.moveTo(0, lado * 1.5); ctx.lineTo(canvas.width, lado * 1.5);
+    ctx.stroke();
+    ctx.font = "600 13px system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.85)";
+    LADOS_DO_CEU.forEach((linhaDeLados, lin) => linhaDeLados.forEach((nome, col) => ctx.fillText(nome, col * lado + 8, lin * lado + 18)));
+    ctx.restore();
   }
   const sel = estado.selecao;
   if (sel && sel.caminho === caminho) {
