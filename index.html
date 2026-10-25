@@ -380,6 +380,8 @@ const CONJUNTOS = [
   { nome: "Vidro", teste: n => /^blocks\/glass(_[a-z_]+)?\.png$/.test(n) && !n.includes("pane") },
   { nome: "Argila", teste: n => n.startsWith("blocks/hardened_clay") },
   { nome: "Minérios", teste: n => /^blocks\/[a-z]+_ore\.png$/.test(n) },
+  { nome: "Cama", teste: n => /^blocks\/bed_(head|feet)_(top|side|end)\.png$/.test(n) || n === "items/bed.png",
+    aviso: "No 1.8 todas as camas usam estas texturas. As cores dos times vêm do mod de Bed Wars do Lunar (opção colored beds)." },
   { nome: "Céu", teste: n => ehCeu(n) || /^environment\/(sun|moon_phases|clouds|end_sky)\.png$/.test(n),
     aviso: "O céu desenhado (skybox) só aparece com OptiFine: Lunar, Badlion ou OptiFine. Os 6 lados ficam em 3x2: baixo, cima, sul / oeste, norte, leste." },
 ];
